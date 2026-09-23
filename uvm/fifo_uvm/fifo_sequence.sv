@@ -29,10 +29,8 @@ class fifo_base_sequence extends uvm_sequence #(fifo_seq_item);
         finish_item(item); // wrapped & send to driver, won't finish until driver calls item_done()
       end
     end
-
-    endtask
-
-  endclass : fifo_base_sequence
+  endtask
+endclass : fifo_base_sequence
   
 
 
