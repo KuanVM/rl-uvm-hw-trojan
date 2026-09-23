@@ -1,4 +1,4 @@
-interface fifo_if (
+interface fifo_if #(
   parameter int DATA_WIDTH = 8
 )
 (
@@ -16,7 +16,7 @@ interface fifo_if (
 //clocking block cho Driver (prevent Race cond)
   clocking drv_cb @(posedge clk);
     default input #1ns output #1ns;
-    output wr_en, rd_en, data_in, rst_n;
+    output wr_en, rd_en, data_in;
     input full, empty, data_out;
   endclocking: drv_cb
 

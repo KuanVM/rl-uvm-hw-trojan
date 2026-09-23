@@ -47,7 +47,7 @@ class fifo_seq_item extends uvm_sequence_item;
   endfunction
 
   // convert_2_string() - for a more peaceful debug experience, evrythangs have been organized beautifully, for visuali
-  virtual function string convert_2_string();
+  virtual function string convert2string();
     return $sformatf("wr = %0b, rd = %0b, d_in = %0b, d_out = %0b, full = %0b, empty = %0b", wr_en, rd_en, data_in, data_out, full, empty);
   endfunction
 
@@ -60,11 +60,12 @@ class fifo_seq_item extends uvm_sequence_item;
     // without do_copy, " aliased handles " - scoreboard sees stale data
   virtual function void do_copy(uvm_object rhs);
     fifo_seq_item rhs_;
-    super.do_copy(rhs);
     // if cast failed,...
     if (!$cast(rhs_, rhs)) begin
       `uvm_fatal("CAST", "do_copy cast failed")
     end
+
+    super.do_copy(rhs);
     
     //manually copying from source (rhs_) to destination (this)
     this.wr_en    = rhs_.wr_en;

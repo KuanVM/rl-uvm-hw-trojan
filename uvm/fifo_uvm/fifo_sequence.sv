@@ -32,6 +32,8 @@ class fifo_base_sequence extends uvm_sequence #(fifo_seq_item);
   endtask
 endclass : fifo_base_sequence
   
+//___________________________________Tests Chamber________________________________
+
 // test 1: a fill to full sequence
 class fifo_seq_fill_2_full extends fifo_base_sequence
   task body();
