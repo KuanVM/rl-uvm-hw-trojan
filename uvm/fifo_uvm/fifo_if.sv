@@ -1,4 +1,9 @@
-interface fifo_if (input logic clk);
+interface fifo_if (
+  parameter int DATA_WIDTH = 8
+)
+(
+  input logic clk
+);
   //signals wire from actual hardware
   logic rst_n;
   logic wr_en;

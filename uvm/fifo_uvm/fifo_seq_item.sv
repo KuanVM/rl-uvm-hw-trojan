@@ -1,18 +1,19 @@
 class fifo_seq_item extends uvm_sequence_item;
 
+
   // random stimulus fieldz
   rand bit wr_en;
-  rand_bit rd_en;
-  rand_bit [7:0] data_in;
+  rand bit rd_en;
+  rand bit [7:0] data_in;
 
-  // observation fields
+  // observation fieldz
   bit [7:0] data_out;
   bit full;
   bit empty;
 
   // UVM: register with the original factory
   // case 1: Not manually write do_copy(), do_compare(), do_print()
-  // not recommend bec sim's perf will largely be nerfed
+  // not recommend bec sim's perf will largely be nerfed when scaled up
   /*
   `uvm_object_utils_begin(fifo_seq_item)
     `uvm_field_int(wr_en,    UVM_ALL_ON)
@@ -26,7 +27,7 @@ class fifo_seq_item extends uvm_sequence_item;
 
   
   // case 2: manually write do_copy(), do_compare(), do_print()
-  `uvm_object_utils(fifo_seq_items)
+  `uvm_object_utils(fifo_seq_item)
   
 
   //default constraints
