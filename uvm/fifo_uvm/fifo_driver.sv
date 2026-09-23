@@ -64,3 +64,4 @@ class fifo_driver extends uvm_driver #(fifo_seq_item);
     vif.drv_cb.data_in <= item.data_in;
 
   endtask
+endclass

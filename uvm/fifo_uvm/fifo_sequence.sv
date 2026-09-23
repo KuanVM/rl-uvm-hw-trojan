@@ -36,6 +36,21 @@ endclass : fifo_base_sequence
 
 // test 1: a fill to full sequence
 class fifo_seq_fill_2_full extends fifo_base_sequence
+    `uvm_object_utils(fifo_seq_fill_2_full)
+  task body();
+    repeat (32) begin
+      req = fifo_seq_item::type_id::create("req");
+      start_item(req);
+        if (!item.randomize() with { wr_en == 1; rd_en == 0; }) begin
+          `uvm_fatal("RAND", "Randomization failed")
+        end
+      finish_item(req);
+    end
+  endtask
+endclass : fifo_seq_fill_2_full
+
+class fifo_seq_drain_2_empty extends fifo_base_sequence
+    `uvm_object_utils(fifo_seq_drain_2_empty)
   task body();
     repeat (32) begin
       req = fifo_seq_item::type_id::create("req");
@@ -46,7 +61,6 @@ class fifo_seq_fill_2_full extends fifo_base_sequence
       finish_item(req);
     end
   endtask
-endclass : fifo_seq_fill_2_full
-
+endclass : fifo_seq_drain_2_empty
 
 

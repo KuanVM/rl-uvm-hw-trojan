@@ -46,7 +46,9 @@ class fifo_monitor extends uvm_monitor;
     item.wr_en   = vif.mon_cb.wr_en;
     item.rd_en   = vif.mon_cb.rd_en;
     item.data_in = vif.mon_cb.data_in;
+    @(posedge clk) // 1 cycle latency
     item.data_out = vif.mon_cb.data_out;
     item.full    = vif.mon_cb.full;
     item.empty   = vif.mon_cb.empty;
   endtask
+endclass
