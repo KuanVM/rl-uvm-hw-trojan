@@ -20,7 +20,7 @@ class fifo_monitor extends uvm_monitor;
     super.build_phase(phase);
     analysis_port = new("analysis_port", this);    // create the port
     if (!uvm_config_db #(virtual fifo_if)::get(this, "", "vif", vif))
-      `uvm_fatal("NOVIF", "Virtual interface not found")
+      `uvm_fatal("NO VIF", "Virtual interface not found")
   endfunction
 
   // run_phase
@@ -46,9 +46,10 @@ class fifo_monitor extends uvm_monitor;
     item.wr_en   = vif.mon_cb.wr_en;
     item.rd_en   = vif.mon_cb.rd_en;
     item.data_in = vif.mon_cb.data_in;
-    @(posedge clk) // 1 cycle latency
-    item.data_out = vif.mon_cb.data_out;
     item.full    = vif.mon_cb.full;
     item.empty   = vif.mon_cb.empty;
+    @(posedge vif.clk); // 1 cycle latency
+    item.data_out = vif.mon_cb.data_out;
+    
   endtask
 endclass

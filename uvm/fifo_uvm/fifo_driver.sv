@@ -44,8 +44,8 @@ class fifo_driver extends uvm_driver #(fifo_seq_item);
   virtual task reset_dut();
     `uvm_info(get_type_name(), "Driving reset...", UVM_MEDIUM)
     vif.rst_n          <= 0;         // direct drive, not through clocking block
-    vif. drv_cb.wr_en  <= 0;
-    vif. drv_cb.rd_en  <= 0;
+    vif.drv_cb.wr_en   <= 0;
+    vif.drv_cb.rd_en   <= 0;
     vif.drv_cb.data_in <= 0;
 
     repeat (5) @(posedge vif.clk);  // hold reset for 5 cycles

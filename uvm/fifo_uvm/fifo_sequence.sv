@@ -34,14 +34,19 @@ endclass : fifo_base_sequence
   
 //___________________________________Tests Chamber________________________________
 
-// test 1: a fill to full sequence
-class fifo_seq_fill_2_full extends fifo_base_sequence
+// test 1: fill to full sequence
+class fifo_seq_fill_2_full extends fifo_base_sequence;
     `uvm_object_utils(fifo_seq_fill_2_full)
+
+  function new(string name = "fifo_seq_fill_2_full");
+    super.new(name);
+  endfunction
+
   task body();
     repeat (32) begin
       req = fifo_seq_item::type_id::create("req");
       start_item(req);
-        if (!item.randomize() with { wr_en == 1; rd_en == 0; }) begin
+        if (!req.randomize() with { wr_en == 1; rd_en == 0; }) begin
           `uvm_fatal("RAND", "Randomization failed")
         end
       finish_item(req);
@@ -49,13 +54,21 @@ class fifo_seq_fill_2_full extends fifo_base_sequence
   endtask
 endclass : fifo_seq_fill_2_full
 
-class fifo_seq_drain_2_empty extends fifo_base_sequence
+
+
+// test 2: drain till empty
+class fifo_seq_drain_2_empty extends fifo_base_sequence;
     `uvm_object_utils(fifo_seq_drain_2_empty)
+
+  function new(string name = "fifo_seq_drain_2_empty");
+    super.new(name);
+  endfunction
+
   task body();
     repeat (32) begin
       req = fifo_seq_item::type_id::create("req");
       start_item(req);
-        if (!item.randomize() with { wr_en == 0; rd_en == 1; }) begin
+        if (!req.randomize() with { wr_en == 0; rd_en == 1; }) begin
           `uvm_fatal("RAND", "Randomization failed")
         end
       finish_item(req);
