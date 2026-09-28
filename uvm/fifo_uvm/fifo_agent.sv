@@ -7,7 +7,7 @@ class fifo_agent extends uvm_agent;
   fifo_monitor   monitor;
 
   // constructor
-  function new(string name = "fifo_agent", uvm_component paarent = null);
+  function new(string name = "fifo_agent", uvm_component parent = null);
     super.new(name, parent);
   endfunction
 
