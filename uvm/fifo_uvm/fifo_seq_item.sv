@@ -7,6 +7,7 @@ class fifo_seq_item extends uvm_sequence_item;
   rand bit [7:0] data_in;
 
   // observation fieldz
+  bit rst_n;
   bit [7:0] data_out;
   bit full;
   bit empty;
@@ -70,6 +71,7 @@ class fifo_seq_item extends uvm_sequence_item;
     //manually copying from source (rhs_) to destination (this)
     this.wr_en    = rhs_.wr_en;
     this.rd_en    = rhs_.rd_en;
+    this.rst_n    = rhs_.rst_n;
     this.data_in  = rhs_.data_in;
     this.data_out = rhs_.data_out;
     this.full     = rhs_.full;
@@ -97,6 +99,7 @@ class fifo_seq_item extends uvm_sequence_item;
     super.do_print(printer);
     printer.print_field_int("wr_en",   wr_en,   1, UVM_BIN);
     printer.print_field_int("rd_en",   rd_en,   1, UVM_BIN);
+    printer.print_field_int("rst_n",   rst_n,   1, UVM_BIN);
     printer.print_field_int("data_in", data_in, 8, UVM_HEX);
     printer.print_field_int("data_out",data_out, 8, UVM_HEX);
     printer.print_field_int("full",    full,    1, UVM_BIN);

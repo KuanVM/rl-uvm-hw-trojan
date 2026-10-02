@@ -22,7 +22,7 @@ class fifo_agent extends uvm_agent;
       // sequencer + driver only in active mode
       if (get_is_active() == UVM_ACTIVE) begin
         sequencer = fifo_sequencer::type_id::create("sequencer", this);
-        driver    = fifo_driver::type_id::create("driver", this),
+        driver    = fifo_driver::type_id::create("driver", this);
       end
     endfunction
 

@@ -23,7 +23,7 @@ interface fifo_if #(
 //clocking block cho monitor
 clocking mon_cb @(posedge clk);
   default input #1ns output #1ns; 
-  input wr_en, rd_en, data_in, data_out, full, empty;
+  input wr_en, rd_en, data_in, data_out, full, empty, rst_n;
 endclocking: mon_cb
 
 //modports

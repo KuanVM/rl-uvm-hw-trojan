@@ -44,6 +44,7 @@ class fifo_monitor extends uvm_monitor;
     @(vif.mon_cb); // sync to mon clock edge (clocking block)
 
     item.wr_en   = vif.mon_cb.wr_en;
+    item.rst_n   = vif.rst_n;
     item.rd_en   = vif.mon_cb.rd_en;
     item.data_in = vif.mon_cb.data_in;
     item.full    = vif.mon_cb.full;
