@@ -3,7 +3,7 @@ class fifo_env extends uvm_env;
 
   // uvc handles
   fifo_agent        agent;
-  fifo_scoreboard   scoreboard:
+  fifo_scoreboard   scoreboard;
   fifo_coverage     coverage;
 
   // agents for multi-if DUTS /* will write later
@@ -27,7 +27,7 @@ class fifo_env extends uvm_env;
     super.connect_phase(phase);
 
     // monitor -> scoreboard (via analysis_fifo)
-    agent.monitor.analysis_port.connect(scoreboard.analysis_fifo.analysis.export);
+    agent.monitor.analysis_port.connect(scoreboard.analysis_fifo.analysis_export);
 
     // monitor -> coverage (via subscriber's built in export)
     agent.monitor.analysis_port.connect(coverage.analysis_export);

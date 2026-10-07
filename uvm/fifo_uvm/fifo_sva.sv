@@ -25,13 +25,13 @@ default disable iff (!rst_n); // supress during reset
 
 // Safety properties (must always hold)
 
-property p_cound_bounds;
+property p_count_bounds;
   count <= DEPTH;
 endproperty
 
 a_count_bounds: assert property (p_count_bounds)
   else begin
-    `uvm_error("SVA", $sformatf("Count out of bounds: %0d", count))
+    $error("SVA", $sformatf("Count out of bounds: %0d", count))
   end
 
 property p_full_empty_mutex;
@@ -40,7 +40,7 @@ endproperty
 
 a_full_empty_mutex: assert property (p_full_empty_mutex)
   else begin
-    `uvm_error("SVA", $sformatf("Full & Empty both asserted!"))
+    $error("SVA", $sformatf("Full & Empty both asserted!"))
   end
 
 // Equiv properties
@@ -51,7 +51,7 @@ endproperty
 
 a_full_iff_depth: assert property (p_full_iff_depth)
   else begin
-    `uvm_error("SVA", $sformatf("Full flag mismatch: full = %b, count = %d", full, count))
+    $error("SVA", $sformatf("Full flag mismatch: full = %b, count = %d", full, count))
   end
 
 // Tempo properties (sequence of events)
@@ -62,12 +62,12 @@ endproperty
 
 a_stable_wr_ptr_when_full: assert property (p_stable_wr_ptr_when_full)
   else begin
-    `uvm_error("SVA", $sformatf("wr_ptr changed while full!"))
+    $error("SVA", $sformatf("wr_ptr changed while full!"))
   end
 
 // Cover properties (for coverage)
 c_full_reached:   cover property (full);
 c_empty_reached:  cover property (empty);
-c_simul_rw:       cover property (wr_en && ed_en && !full && !empty);
+c_simul_rw:       cover property (wr_en && rd_en && !full && !empty);
 
 endmodule

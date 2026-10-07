@@ -4,6 +4,7 @@
 // =============================================
 
 class fifo_base_test extends uvm_test;
+  `uvm_component_utils(fifo_base_test)
   fifo_env env;
 
   function new(string name = "fifo_base_test", uvm_component parent = null);
@@ -44,8 +45,9 @@ class fifo_random_test extends fifo_base_test;
   endfunction
 
   // run phase - start the sequence
-  virtual task run_phase(uvm_phase);
+  virtual task run_phase(uvm_phase phase);
     fifo_base_sequence seq;
+    phase.raise_objection(this, "Starting test sequence");
 
     // raise objection to keep sim running
     seq = fifo_base_sequence::type_id::create("seq");

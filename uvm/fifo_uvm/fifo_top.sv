@@ -39,7 +39,7 @@ module fifo_top;
   // Timeout watchdog
   initial begin
     #1000000ns;
-    ~`uvm_fatal("TIMEOUT", $sformatf("Simulation exceeded time limit"))
+    `uvm_fatal("TIMEOUT", $sformatf("Simulation exceeded time limit"))
   end
 
   initial begin
