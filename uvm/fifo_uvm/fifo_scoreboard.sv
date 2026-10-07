@@ -7,7 +7,6 @@ class fifo_scoreboard extends uvm_scoreboard;
 
   // Golden model state
   // 1: FIFO
-  bit [7:0] gold_queue[$];
   bit [7:0] ref_queue[$];
   bit       pending_read = 0;
   bit [7:0] pending_expected = 0;

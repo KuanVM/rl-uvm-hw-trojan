@@ -31,7 +31,7 @@ endproperty
 
 a_count_bounds: assert property (p_count_bounds)
   else begin
-    $error("SVA", $sformatf("Count out of bounds: %0d", count))
+    $error("Count out of bounds: %0d", count);
   end
 
 property p_full_empty_mutex;
@@ -40,7 +40,7 @@ endproperty
 
 a_full_empty_mutex: assert property (p_full_empty_mutex)
   else begin
-    $error("SVA", $sformatf("Full & Empty both asserted!"))
+    error("Full & Empty both asserted!");
   end
 
 // Equiv properties
@@ -51,8 +51,8 @@ endproperty
 
 a_full_iff_depth: assert property (p_full_iff_depth)
   else begin
-    $error("SVA", $sformatf("Full flag mismatch: full = %b, count = %d", full, count))
-  end
+$error("Full flag mismatch: full=%b, count=%0d", full, count);  
+end
 
 // Tempo properties (sequence of events)
 
@@ -62,7 +62,7 @@ endproperty
 
 a_stable_wr_ptr_when_full: assert property (p_stable_wr_ptr_when_full)
   else begin
-    $error("SVA", $sformatf("wr_ptr changed while full!"))
+    $error("wr_ptr changed while full!");  
   end
 
 // Cover properties (for coverage)

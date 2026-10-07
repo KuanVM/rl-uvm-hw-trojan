@@ -2,8 +2,8 @@
 # Tool: Questa
 
 # -- PATHS --
-RTL_DIR		=	/mnt/4cd7130a-027f-496a-87a6-6cc6aded2046/Q2/rl-uvm-hardware-trojan/rl-uvm-hw-trojan/rtl
-UVM_DIR		=	/mnt/4cd7130a-027f-496a-87a6-6cc6aded2046/Q2/rl-uvm-hardware-trojan/rl-uvm-hw-trojan/uvm/fifo_uvm
+RTL_DIR		=	../../rtl
+UVM_DIR		=	.
 TOP			=	fifo_top
 
 # -- Src files --
@@ -29,7 +29,7 @@ VERBOSITY	?= UVM_MEDIUM
 # compile only
 compile: 
 	vlib work
-	vmap work
+	vmap work work
 	$(VLOG) $(VLOG_OPTS) $(RTL_SRC) $(UVM_SRC)
 
 # compile + simulate
