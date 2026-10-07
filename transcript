@@ -1,0 +1,96 @@
+# //  Questa Sim-64
+# //  Version 2021.2_1 linux_x86_64 May 15 2021
+# //
+# //  Copyright 1991-2021 Mentor Graphics Corporation
+# //  All Rights Reserved.
+# //
+# //  QuestaSim and its associated documentation contain trade
+# //  secrets and commercial or financial information that are the property of
+# //  Mentor Graphics Corporation and are privileged, confidential,
+# //  and exempt from disclosure under the Freedom of Information Act,
+# //  5 U.S.C. Section 552. Furthermore, this information
+# //  is prohibited from disclosure under the Trade Secrets Act,
+# //  18 U.S.C. Section 1905.
+# //
+# vsim -do "add wave -r /*; run -all" "+UVM_TESTNAME" = fifo_random_test = UVM_MEDIUM work.fifo_top "+UVM_VERBOSITY" 
+# Start time: 14:45:44 on Oct 07,2026
+# ** Fatal: (vsim-3369) Top-level design unit '=' specified more than once.
+# FATAL ERROR while loading design
+# Error loading design
+# End time: 14:45:44 on Oct 07,2026, Elapsed time: 0:00:00
+# Errors: 1, Warnings: 0
+# Break key hit
+# Break key hit
+# Break key hit
+# Break key hit
+vsim +UVM_TESTNAME=fifo_random_test +UVM_VERBOSITY=UVM_MEDIUM work.fifo_top
+# vsim "+UVM_TESTNAME=fifo_random_test" "+UVM_VERBOSITY=UVM_MEDIUM" work.fifo_top 
+# Start time: 14:47:32 on Oct 07,2026
+# ** Note: (vsim-3812) Design is being optimized...
+# Loading sv_std.std
+# Loading work.fifo_if(fast)
+# Loading mtiUvm.uvm_pkg(fast)
+# Loading work.fifo_pkg(fast)
+# Loading mtiUvm.questa_uvm_pkg(fast)
+# Loading work.fifo_top(fast)
+# Loading work.fifo_if(fast__2)
+# Loading work.sync_fifo(fast)
+# Loading /mnt/faff1b38-15c0-4dbc-a705-c0f65b2438a1/toolz/Qsim/questasim/uvm-1.1d/linux_x86_64/uvm_dpi.so
+add wave -r /fifo_top/*
+run -all
+# ----------------------------------------------------------------
+# UVM-1.1d
+# (C) 2007-2013 Mentor Graphics Corporation
+# (C) 2007-2013 Cadence Design Systems, Inc.
+# (C) 2006-2013 Synopsys, Inc.
+# (C) 2011-2013 Cypress Semiconductor Corp.
+# ----------------------------------------------------------------
+# 
+#   ***********       IMPORTANT RELEASE NOTES         ************
+# 
+#   You are using a version of the UVM library that has been compiled
+#   with `UVM_NO_DEPRECATED undefined.
+#   See http://www.eda.org/svdb/view.php?id=3313 for more details.
+# 
+#   You are using a version of the UVM library that has been compiled
+#   with `UVM_OBJECT_MUST_HAVE_CONSTRUCTOR undefined.
+#   See http://www.eda.org/svdb/view.php?id=3770 for more details.
+# 
+#       (Specify +UVM_NO_RELNOTES to turn off this notice)
+# 
+# UVM_INFO verilog_src/questa_uvm_pkg-1.2/src/questa_uvm_pkg.sv(277) @ 0: reporter [Questa UVM] QUESTA_UVM-1.2.3
+# UVM_INFO verilog_src/questa_uvm_pkg-1.2/src/questa_uvm_pkg.sv(278) @ 0: reporter [Questa UVM]  questa_uvm::init(+struct)
+# UVM_INFO @ 0: reporter [RNTST] Running test fifo_random_test...
+# UVM_INFO ./uvm/fifo_uvm/fifo_driver.sv(45) @ 0: uvm_test_top.env.agent.driver [fifo_driver] Driving reset...
+# UVM_INFO ./uvm/fifo_uvm/fifo_driver.sv(55) @ 55000: uvm_test_top.env.agent.driver [fifo_driver] Reset released.
+# UVM_INFO verilog_src/uvm-1.1d/src/base/uvm_objection.svh(1267) @ 20045000: reporter [TEST_DONE] 'run' phase is ready to proceed to the 'extract' phase
+# UVM_INFO ./uvm/fifo_uvm/fifo_coverage.sv(52) @ 20045000: uvm_test_top.env.coverage [fifo_coverage] Coverage: 100.0%
+# UVM_INFO ./uvm/fifo_uvm/fifo_scoreboard.sv(118) @ 20045000: uvm_test_top.env.scoreboard [fifo_scoreboard] 
+# ========================================
+#   SCOREBOARD SUMMARY
+#   Total transactions : 1999
+#   Data matches (1.1 FIFO_data_out check): 844
+#   Data mismatches: 0
+#   Flag mismatches (1.2): 0
+# ========================================
+# UVM_INFO ./uvm/fifo_uvm/fifo_test.sv(30) @ 20045000: uvm_test_top [fifo_random_test] ═══ TEST PASSED ═══
+# 
+# --- UVM Report Summary ---
+# 
+# ** Report counts by severity
+# UVM_INFO :    9
+# UVM_WARNING :    0
+# UVM_ERROR :    0
+# UVM_FATAL :    0
+# ** Report counts by id
+# [Questa UVM]     2
+# [RNTST]     1
+# [TEST_DONE]     1
+# [fifo_coverage]     1
+# [fifo_driver]     2
+# [fifo_random_test]     1
+# [fifo_scoreboard]     1
+# ** Note: $finish    : /mnt/faff1b38-15c0-4dbc-a705-c0f65b2438a1/toolz/Qsim/questasim/linux_x86_64/../verilog_src/uvm-1.1d/src/base/uvm_root.svh(430)
+#    Time: 20045 ns  Iteration: 63  Instance: /fifo_top
+# 1
+# Break in Task uvm_pkg/uvm_root::run_test at /mnt/faff1b38-15c0-4dbc-a705-c0f65b2438a1/toolz/Qsim/questasim/linux_x86_64/../verilog_src/uvm-1.1d/src/base/uvm_root.svh line 430

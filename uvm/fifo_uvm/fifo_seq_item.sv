@@ -97,13 +97,13 @@ class fifo_seq_item extends uvm_sequence_item;
   // manual do_print
   virtual function void do_print(uvm_printer printer);
     super.do_print(printer);
-    printer.print_field_int("wr_en",   wr_en,   1, UVM_BIN);
-    printer.print_field_int("rd_en",   rd_en,   1, UVM_BIN);
-    printer.print_field_int("rst_n",   rst_n,   1, UVM_BIN);
-    printer.print_field_int("data_in", data_in, 8, UVM_HEX);
-    printer.print_field_int("data_out",data_out, 8, UVM_HEX);
-    printer.print_field_int("full",    full,    1, UVM_BIN);
-    printer.print_field_int("empty",   empty,   1, UVM_BIN);
+    printer.print_field("wr_en",    wr_en,    1, UVM_BIN);
+    printer.print_field("rd_en",    rd_en,    1, UVM_BIN);
+    printer.print_field("rst_n",    rst_n,    1, UVM_BIN);
+    printer.print_field("data_in",  data_in,  8, UVM_HEX);
+    printer.print_field("data_out", data_out, 8, UVM_HEX);
+    printer.print_field("full",     full,     1, UVM_BIN);
+    printer.print_field("empty",    empty,    1, UVM_BIN);
   endfunction
   
 endclass

@@ -4,7 +4,8 @@ class fifo_coverage extends uvm_subscriber #(fifo_seq_item);
   fifo_seq_item item;
 
   // covergroup definition
-  covergroup fifo_cg;
+    covergroup fifo_cg;
+
     // Individual coverpoints
     cp_wr_en: coverpoint item.wr_en {
       bins active   = {1};
@@ -28,8 +29,8 @@ class fifo_coverage extends uvm_subscriber #(fifo_seq_item);
     }
 
     // Invalid bins
-    cp_full_empty: coverpoint {item.full, item.empty} {
-      invalid_bins both_high  = {2'b11}; // full && empty simultaneously
+    cp_full_empty: coverpoint ({item.full, item.empty}) {
+      illegal_bins both_high  = {2'b11}; // full && empty simultaneously
     }
   endgroup
 
