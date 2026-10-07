@@ -1,253 +1,311 @@
-# Experiment Protocol: FIFO UVM Hardware Trojan Baseline
+# Experiment Protocol: RL-UVM Hardware Trojan Study
 
-> **Document status:** Draft v0.1  
-> **Last updated:** YYYY-MM-DD  
-> **Owner:** [Name]  
-> **Repository commit:** `[git commit hash]`
+> **Document status:** Draft v0.2 (revised after advisor review of 2026-09-23)  
+> **Last updated:** 2026-09-25  
+> **Owner:** `[Name]`  
+> **Repository commit:** `[git commit hash]`  
+> **Companion documents:** `01_scope_threat_model.md` (definitions), `04_lab_notebook.md` (records)
+
+## Change log (Lịch sử thay đổi) — newest first
+
+| Date | Version | Change |
+|---|---|---|
+| 2026-09-25 | v0.2 | Scope widened from a FIFO-only baseline to the full campaign. Added pre-registration package (§4), benchmark screening and generation (§5), rarity calibration (§6), budget rule (§7), method list (§8), extended logging schema (§11), activation frontier and RMST (§12), a statistics plan with power caveats (§13), ablations (§14), oracle audit (§15), G2 pilot decision rule (§16), and a compute worksheet (§17). |
+| — | v0.1 | Baseline-only protocol for the FIFO. |
 
 ---
 
 ## 1. Purpose
 
-This protocol defines a reproducible **UVM constrained-random baseline** for an RTL FIFO that may contain a rare-trigger Hardware Trojan (HT). The baseline establishes activation, detection, coverage, and simulation-cost measurements before any RL method is introduced.
+This protocol defines reproducible procedures for:
 
-## 2. Research objective and hypothesis
+1. pre-registering each DUT's coverage, detectors, knobs and analysis;
+2. screening and generating Trojans;
+3. calibrating rarity;
+4. running baselines and, after gate G2, RL methods;
+5. analyzing results.
 
-**Objective.** Measure how effectively conventional UVM constrained-random verification explores rare FIFO states, activates a reachable HT trigger, and detects observable payload behavior under a fixed simulation budget.
+RL training runs only after gate G2 (scope §13).
 
-**Baseline hypothesis H0.** Under the fixed budget, constrained-random UVM achieves the measured activation/detection/coverage performance reported in this protocol.
+## 2. Hypotheses
 
-**Future comparison hypothesis H1.** A non-oracular RL-guided UVM policy improves at least one preregistered primary metric against this baseline under the same budget and detector setup.
+| ID | Hypothesis | Primary endpoint |
+|---|---|---|
+| H0 | Baseline characterization: B0 activation follows 1 − (1 − p)^B within calibration error | Observed vs predicted activation per level |
+| H1 (primary) | The RL method shifts the activation frontier toward rarer triggers vs each baseline in the claimed tier | Frontier difference in log₁₀ p (95% CI) |
+| H1b | The RL method reduces restricted-mean TTA vs each baseline | RMST difference (95% CI) |
+| H2 | The GB reward improves over the BB reward | Frontier and RMST difference, GB − BB |
+| H3 | Detection latency and masking differ by payload class | Latency distribution; masking rate |
+
+All hypotheses, endpoints and tests are frozen at G0. Changes are logged as deviations (§20).
 
 ## 3. Scope and non-goals
 
-### In scope
-- RTL simulation.
-- FIFO DUT: clean and Trojan-inserted versions.
-- SystemVerilog/UVM constrained-random tests.
-- Scoreboard, assertions, functional coverage, rare-bin coverage.
-- Offline logging of HT activation oracle for evaluation only.
+**In scope:** RTL simulation; FIFO + ≥2 screened hosts; Tier-A and Tier-B Trojans; spec-derived detectors; BB and GB settings; offline oracle.
 
-### Out of scope in this phase
-- RL training/inference.
-- Gate-level, FPGA, and side-channel measurement.
-- Trojan source localization.
-- Claims about undisclosed real-world Trojans.
+**Out of scope:** gate-level, FPGA and side-channel measurement; localization; claims about undisclosed real-world Trojans.
 
-## 4. Threat model
+---
 
-| Item | Definition for this experiment |
-|---|---|
-| Insertion level | RTL |
-| Trigger class | `[counter / FSM-state / transaction-sequence / combinational]` |
-| Trigger condition | `[precise, directed-test-validated condition]` |
-| Payload class | `[output corruption / data leakage / DoS / protocol violation]` |
-| Observable payload symptom | `[scoreboard mismatch / assertion failure / monitor event]` |
-| Attacker knowledge available to agent | None: no trigger signal, HT location, or payload logic |
-| Evaluation oracle | `trojan_activated` may be logged after each test/run but is never supplied as UVM constraint feedback or RL state/reward |
+## 4. Pre-registration package (gate G0, per DUT)
 
-## 5. DUT and verification configuration
+Freeze in this order. Commit each item, tag it `prereg/<dut>/<item>`, and record its SHA in the lab notebook §H. **No Trojan for a DUT may be authored, generated or screened before that DUT's G0 is signed.**
 
-| Field | Clean DUT | Trojan DUT |
+| # | Artifact | Owner |
 |---|---|---|
-| RTL path | `[path]` | `[path]` |
-| Top module | `[module]` | `[module]` |
-| FIFO width/depth | `[W] / [D]` | `[W] / [D]` |
-| Clock/reset | `[definition]` | `[definition]` |
-| Commit hash | `[hash]` | `[hash]` |
+| 1 | Spec and reference-model decisions | Blue |
+| 2 | Functional covergroups and rare-bin register (spec-only) | Blue |
+| 3 | Detector set, including liveness bounds | Blue |
+| 4 | Knob set and levels; FIFO named vectors | Blue |
+| 5 | Baseline policy π₀, test length N, reset policy | Blue |
+| 6 | Reward formulas (BB, GB) and GB probe extractor version | Blue |
+| 7 | Metrics, statistical tests, G2 decision rule, FPR bound | Blue + advisor |
+| 8 | Dev/test split rule and generator seed lists | Red |
 
-### Required UVM components
-- Sequencer, driver, monitor, agent, environment, test.
-- Reference model and scoreboard.
-- At least two relevant assertions.
-- Functional covergroup and rare-bin covergroup.
-- Per-test log writer.
+**Auditor sign-off:** the advisor signs the G0 record.
 
-## 6. Reachability and detector validation gates
+---
 
-Before running random tests, complete and record all checks below.
+## 5. Benchmark preparation
 
-- [ ] Clean DUT passes directed functional tests.
-- [ ] Trojan DUT behaves equivalently to clean DUT before trigger activation.
-- [ ] Directed test proves trigger is reachable.
-- [ ] Directed test proves payload occurs after trigger activation.
-- [ ] Scoreboard or assertion detects the payload.
-- [ ] Detection does not fire on clean DUT under equivalent directed traffic.
-- [ ] Every reported rare bin is reachable or explicitly marked unreachable and excluded from the denominator.
+### 5.1 Tier A screening
 
-Do not proceed to baseline data collection until every box is checked.
+Apply S1–S7 (scope §3.3) to each candidate. Record the result in the screening table:
 
-## 7. Test stimulus and controlled variables
+| Trojan | S1 compile | S2 host (pass/repaired/excluded) | C | M | S | P | RTL-sim only | S4 interface payload | S5 directed test | S6 p (interval) | S7 decision | Reason |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
 
-### Baseline sequence
-`[uvm_fifo_constrained_random_seq]`
+If a host is repaired, apply the same patch to clean and Trojan versions. Store the diff under `benchmarks/<design>/repair.patch` and note it in the decision log.
 
-### Randomized transaction fields
-| Field | Distribution/constraint | Rationale |
-|---|---|---|
-| `write_en` | `[specify]` | `[reason]` |
-| `read_en` | `[specify]` | `[reason]` |
-| `data` | `[specify]` | `[reason]` |
-| reset timing | `[specify]` | `[reason]` |
-| burst length | `[specify]` | `[reason]` |
+### 5.2 Tier B generation
 
-### Fixed controls
+1. Red chooses a trigger class, rarity parameter, payload class and host from the pre-registered grid.
+2. Generate the Trojan (DTjRTL, or in-house generator `[version]`).
+3. Run the acceptance test: no latches; Yosys synthesis + post-synthesis trigger simulation; no new ports, files or top modules; directed activation; pre-trigger equivalence with the clean host.
+4. Record generator seed, parameters, hashes and acceptance results.
+
+### 5.3 Dev/test split
+
+- **Dev:** FIFO-hosted Trojans + dev-seed Trojans on other hosts.
+- **Test:** held-out seeds + ≥1 trigger class absent from dev + all Tier-A Trojans.
+- The test split is used once, with the frozen configuration. Red executes test-split campaigns.
+
+---
+
+## 6. Rarity calibration
+
+1. Fix π₀, N and reset policy (from G0).
+2. For each Trojan, run M independent baseline tests and count activations k.
+3. Report p̂ = k/M with a Wilson or Clopper–Pearson 95% interval. If k = 0, report the upper bound p < 3/M.
+4. Target precision: ±50% relative (95%), which needs about 16 activations. That is about 1.5k tests at 10⁻², 15k at 10⁻³ and 150k at 10⁻⁴.
+5. For Tier-B levels below direct reach, fit log p against the generator parameter at measurable levels and extrapolate. Label extrapolated values in every table and verify with the rule-of-three bound.
+
+| Trojan | Level target | M tests | k | p̂ | 95% interval / bound | Extrapolated? |
+|---|---|---:|---:|---:|---|---|
+
+---
+
+## 7. Budget and stopping rule
+
+- **Budget:** B tests of N transactions per run. Default B = 1,000 (scope §5.3 table), frozen at G0 after measuring cost per test.
+- Report equivalent budgets in simulated cycles and wall-clock. Every method is capped by the same cycle budget, and wall-clock overhead is reported.
+- **Stopping rule:** a run ends at the first of B tests reached, the cycle cap, the wall-clock timeout, or a fatal infrastructure error. Runs **continue after detection** so that coverage and cost remain comparable across methods (`[confirm: continue]`).
+
+---
+
+## 8. Methods compared
+
+| ID | Method | Action space | Setting |
+|---|---|---|---|
+| B0 | Constrained-random, frozen π₀ | Fixed knobs | BB |
+| B1 | Uniform random knob selection per test | Knobs | BB |
+| B2 | Knob-space black-box optimizer on coverage | Knobs | BB |
+| B3 | Coverage-guided mutational sequence fuzzer (VGF-style value coverage + functional coverage) | Sequence mutation | BB (value coverage labelled) |
+| B4 | Rare-event directed heuristic (MERO-style) | Knobs | BB / GB |
+| B5 | Published-RL adaptations (TGRL-style reward; DETERRENT-inspired sets) | Knobs | GB |
+| M1 | Contextual bandit over knobs | Knobs | BB |
+| M2 | Tabular Q-learning over knobs | Knobs | BB |
+| M3 | M1 or M2 with GB reward | Knobs | GB |
+
+Q2 requires B0–B3 against M1/M2. Q1 adds B4, B5 and M3. B3 uses a different action space; this is declared in every table.
+
+---
+
+## 9. Controlled variables
+
 | Variable | Value |
 |---|---|
-| Simulator/version | `[tool and version]` |
-| Compile options | `[options]` |
+| Simulator / version | Questa 2021.2 (primary) `[confirm licence: UVM, mixed-language, IEEE 1735]` |
 | UVM version | `[version]` |
-| Host/OS | `[CPU, RAM, OS]` |
-| Timeout per test | `[value]` |
-| Cycles/test budget | `[value]` |
-| Tests/seed | `[value]` |
-| Number of independent seeds | `[value, recommended >= 10]` |
-| Global simulation budget | `[value]` |
+| Compile options | `[options]` |
+| Host / OS | `[CPU, RAM, OS]` |
+| Python / RL stack | `[version]` |
+| N (transactions per test) | `[value, frozen at G0]` |
+| B (tests per run) | 1,000 default `[frozen at G0]` |
+| Cycle cap per run | `[value]` |
+| Seeds per cell | ≥10; 30 where cost allows (§13) |
+| Seed list | `[file + hash]`, shared across methods (paired) |
 
-All future methods must retain the same DUT revision, detector, coverage model, seed set, stopping rule, and primary budget unless a documented ablation changes one factor.
+All methods keep the same DUT revision, detectors, coverage model, seed list, stopping rule and budget unless a documented ablation changes one factor.
 
-## 8. Coverage model
+---
 
-### Functional coverage
-| Coverpoint/cross | Intended behavior | Reachable? |
-|---|---|---|
-| write enable | write/no-write | `[Y/N]` |
-| read enable | read/no-read | `[Y/N]` |
-| full state | boundary behavior | `[Y/N]` |
-| empty state | boundary behavior | `[Y/N]` |
-| read/write cross | simultaneous operation | `[Y/N]` |
-| boundary cross | state-transition corner cases | `[Y/N]` |
+## 10. Run procedure
 
-### Rare bins
-| Rare-bin ID | Definition | Directed test ID | Included in metric? |
-|---|---|---|---|
-| `RB-01` | `[definition]` | `[test]` | `[Y/N]` |
-| `RB-02` | `[definition]` | `[test]` | `[Y/N]` |
-| `RB-03` | `[definition]` | `[test]` | `[Y/N]` |
+For each (DUT, Trojan, method, seed):
 
-## 9. Run procedure
-
-For each seed in the preregistered seed list:
-
-1. Check out the recorded commit and clean build directory.
-2. Compile DUT and UVM environment using recorded commands.
-3. Run the constrained-random test with the fixed seed and budget.
-4. Preserve raw simulator log, coverage database, waveform on failures, and per-test structured log.
-5. Record activation oracle only in the output log, not in online test selection.
+1. Check out the recorded commit; clean build.
+2. Compile with recorded commands.
+3. Run with the fixed seed and budget. The agent process has no read access to oracle outputs.
+4. Preserve the raw log, coverage database, per-test structured log, and waveforms on detector events.
+5. Write oracle activation to a separate file that the agent process cannot read.
 6. Apply the stopping rule.
 7. Validate row completeness and file hashes.
 
-### Stopping rule
-A run ends at the first of:
-- fixed cycle budget reached;
-- fixed test budget reached;
-- wall-clock timeout reached;
-- fatal simulation/infrastructure error.
+Clean-DUT runs use the same seeds for the false-positive campaign.
 
-A detected HT is **not** automatically a reason to stop unless this rule is used consistently for every compared method. Record the selected policy: `[continue / stop-on-detection]`.
+---
 
-## 10. Logging schema
-
-One row per test (CSV or JSONL):
+## 11. Logging schema (one row per test; CSV or JSONL)
 
 ```text
-run_id,method,seed,test_id,scenario,constraint_profile,
-dut_version,git_commit,simulator_version,cycles,
-wall_time_s,functional_coverage_pct,rare_bin_coverage_pct,
-new_coverage_bins,new_rare_bins,assertion_failures,
-scoreboard_mismatches,detector_event,trojan_activated_oracle,
-trojan_detected,activation_cycle,detection_cycle,exit_reason,
-raw_log_path,coverage_db_path,waveform_path
+run_id, method, method_version, config_hash, prereg_hash, observability_setting,
+dut_id, dut_version, trojan_id, tier, split, trigger_class, payload_class,
+rarity_level_target, p_act_est, p_act_extrapolated,
+seed, test_id, knob_vector, action_id,
+reward_total, reward_dC, reward_dR, reward_D, reward_cost, reward_dS,
+git_commit, simulator_version, cycles, wall_time_s, agent_time_s, ipc_time_s,
+functional_coverage_pct, rare_bin_coverage_pct, new_coverage_bins, new_rare_bins,
+det_sb_data, det_sb_flag, det_sva, det_live, det_mon, detector_event,
+trojan_activated_oracle, activation_cycle, detection_cycle,
+exit_reason, raw_log_path, coverage_db_path, waveform_path
 ```
 
-Use `NA` rather than `0` for an event time that did not occur.
+Use `NA`, never `0`, for event times that did not occur. Oracle columns are joined offline from the separate oracle file.
 
-## 11. Metric definitions
+---
 
-Let $N$ be the number of independent runs and $I_i^{A}$ and $I_i^{D}$ indicate whether activation and detection occur in run $i$.
+## 12. Metrics
 
-### Primary metrics
+Let N_r be the number of runs in a cell, and I_i^A, I_i^D indicate activation and detection in run i.
 
-$$
-\text{Activation Rate} = \frac{1}{N}\sum_{i=1}^{N} I_i^{A}
-$$
+```latex
+\text{Activation rate} = \frac{1}{N_r}\sum_i I_i^A \qquad
+\text{Detection rate} \mid A = \frac{\sum_i I_i^A I_i^D}{\sum_i I_i^A}
+```
 
-$$
-\text{Detection Rate} = \frac{1}{N}\sum_{i=1}^{N} I_i^{D}
-$$
+```latex
+\text{Masking rate} = 1 - \text{Detection rate} \mid A \qquad
+\text{Latency}_i = \mathrm{TTD}_i - \mathrm{TTA}_i
+```
 
-$$
-\text{Rare-bin Coverage} = \frac{\text{covered reachable rare bins}}{\text{total reachable rare bins}}
-$$
+**Activation frontier.** For each method, fit a logistic model of activation against log₁₀ p across rarity levels, pooling Trojans. The frontier is the log₁₀ p at which the fitted activation probability equals 0.5 within budget B. A method with a frontier further toward small p activates rarer triggers.
 
-### Time and effort metrics
+**Restricted-mean TTA (RMST).** The area under the Kaplan–Meier survival curve of TTA up to B. It handles censored runs without inventing values.
 
-$$
-\text{TTA}_i = \text{first activation cycle or test in run } i
-$$
+**Other metrics:** functional and rare-bin coverage (reachable denominators); cycles, wall-clock, agent and IPC time; clean-DUT FPR; per-DUT engineering effort (lines of agent code, annotation count, hours).
 
-$$
-\text{TTD}_i = \text{first detection cycle or test in run } i
-$$
-
-$$
-\text{Detection Latency}_i = \text{TTD}_i - \text{TTA}_i
-$$
-
-$$
-\text{Functional Coverage} = \frac{\text{covered reachable bins}}{\text{total reachable bins}}
-$$
-
-### No-event (censored) runs
-If activation/detection does not occur by the fixed budget, record the observation as **right-censored**, not as an arbitrary large event time. Report:
-- event rate at the budget;
-- median TTA/TTD among successful runs, clearly labeled conditional;
-- time-to-event curve or restricted mean time-to-event where feasible;
-- number of censored runs.
-
-### False alarms
-Run the same seed protocol on the clean DUT.
-
-$$
-\text{False Positive Rate} = \frac{\text{clean runs with detector event}}{\text{total clean runs}}
-$$
-
-## 12. Data quality checks
-
-- [ ] Every run has a unique `run_id`.
-- [ ] Seed, commit, simulator version, and budget are recorded.
-- [ ] No missing raw log for completed run.
-- [ ] Activation oracle is absent from sequence constraints/reward channels.
-- [ ] Coverage denominator excludes documented unreachable bins.
-- [ ] Clean-DUT runs are included for false-positive assessment.
-- [ ] Failed infrastructure runs are separated from valid censored runs.
+---
 
 ## 13. Statistical analysis plan
 
-- Report mean, standard deviation, median, interquartile range, and 95% confidence interval across independent seeds.
-- Report per-seed points; do not report only a best seed.
-- Use the same seed list for paired baseline-vs-RL comparisons where possible.
-- Report effect size and confidence interval, not only $p$-values.
-- Predefine the test after selecting sample size: `[paired bootstrap / permutation test / Mann-Whitney U / survival-analysis comparison]`.
-- Do not tune on the final held-out benchmark/seed set.
+**Why 10 seeds per cell are not enough for per-cell claims.** 95% Wilson intervals for an activation rate:
 
-## 14. Result-table templates
+| Observed | 10 runs | 30 runs |
+|---|---|---|
+| 0% | 0–28% | 0–11% |
+| 50% | 24–76% | 33–67% |
+| 100% | 72–100% | 89–100% |
 
-### Summary by method
-| Method | Runs | Activation rate | Detection rate | Median TTA | Median TTD | Rare-bin coverage | Functional coverage | Runtime/run | FPR on clean DUT |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| UVM constrained-random | | | | | | | | | |
-| Future RL method | | | | | | | | | |
+A single cell with 10 runs cannot separate 30% from 60%. Therefore:
+
+- **Minimum:** 10 seeds per (Trojan, level, method), as the advisor requires; 30 where a run costs under `[threshold]`.
+- **Primary analysis pools across Trojans and levels:**
+  - Mixed-effects logistic regression: activation ~ method × log₁₀ p + (1 | DUT/Trojan). Frontier differences come with bootstrap 95% CIs (resampling Trojans, then seeds).
+  - Kaplan–Meier curves per method; RMST difference with bootstrap CI; log-rank test as secondary.
+- Paired seeds across methods wherever possible.
+- **Multiple comparisons:** Holm correction across baselines within each hypothesis.
+- **Effect sizes:** frontier shift in decades of p; RMST ratio; risk difference.
+- Report every per-seed point. Never report only the best seed.
+- Tune nothing on the test split.
+
+---
+
+## 14. Ablations (Q2 requires reward-component ablations)
+
+| Ablation | Change | Question |
+|---|---|---|
+| A-α, A-β, A-γ, A-λ | Set each weight to 0 in turn | Contribution of each reward term |
+| A-noR | β = 0 (no rare-bin term) | Does performance depend on rare-bins? Leakage sanity check |
+| A-GB | M3 vs M1/M2 | Value of structural probes |
+| A-knob | Remove one knob at a time | Which knobs matter per trigger class |
+| A-leak (optional) | Rare-bins written post hoc with Trojan knowledge | How much leakage would inflate results; demonstrates why G0 matters |
+
+---
+
+## 15. Oracle-leakage audit
+
+- [ ] Static check: no reference to `trojan_activated`, Trojan module names or oracle file paths in agent, sequence, coverage or reward code (scripted grep in CI).
+- [ ] Interface check: the agent process lacks read permission to the oracle directory.
+- [ ] Pre-registration hashes match the artifacts used in each run (`prereg_hash` column).
+- [ ] The knowledge-exposure log has been reviewed; exposed Trojans are flagged in results.
+- [ ] Code review signed by the red owner and the advisor.
+
+---
+
+## 16. G2 pilot (dev split only)
+
+- **Setup:** FIFO + generated Trojans at p ≈ 10⁻² and 10⁻³; trigger classes T-C and T-S; methods B0, B1, M1; 10 seeds each.
+- **Go:** M1 beats B1 on RMST-TTA or activation at either level (95% CI excludes 0), **or** reward components correlate with activation (offline, dev only).
+- **Else:** run M3 (GB reward) once with the same setup. If still null, switch to the characterization path (scope §1.2) and record the decision in the lab notebook.
+
+---
+
+## 17. Compute worksheet
+
+```text
+runs = Σ_DUT Σ_Trojan Σ_level  (methods × seeds)
+cost_per_run ≈ B × N × cycles_per_transaction / sim_speed  +  agent_overhead
+```
+
+| Item | Value |
+|---|---|
+| Measured sim speed (cycles/s) on FIFO with UVM | `[measure]` |
+| Measured cost per test | `[measure]` |
+| Planned runs (Q2 package) | `[compute]` |
+| Estimated CPU-hours | `[compute]` |
+| Available machines / licences | `[fill]` |
+
+Freeze B and seed counts only after filling this table.
+
+---
+
+## 18. Data quality checks
+
+- [ ] Unique `run_id`; `config_hash` and `prereg_hash` present.
+- [ ] Seed, commit, simulator version and budget recorded.
+- [ ] No missing raw log for a completed run.
+- [ ] Oracle absent from online paths (§15).
+- [ ] Coverage denominators exclude documented unreachable bins.
+- [ ] Clean-DUT runs exist for every DUT.
+- [ ] Infrastructure failures separated from censored runs.
+- [ ] Test-split runs executed once with frozen config.
+
+## 19. Result-table templates
+
+### Summary by method (per DUT and pooled)
+
+| Method | Runs | Frontier log₁₀ p (CI) | RMST-TTA (CI) | Activation @10⁻³ | Activation @10⁻⁴ | Detection given A | Masking | Rare-bin cov. | Runtime/run | Clean FPR |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 
 ### Run validity
-| Method | Planned runs | Valid runs | Censored activation | Censored detection | Infrastructure failures | Excluded runs and reason |
+
+| Method | Planned | Valid | Censored A | Censored D | Infra failures | Excluded (reason) |
 |---|---:|---:|---:|---:|---:|---|
-| UVM constrained-random | | | | | | |
 
-## 15. Deviations from protocol
+## 20. Deviations from protocol
 
-Any deviation must be entered in `docs/04_lab_notebook.md` before interpreting results.
+Enter every deviation in `04_lab_notebook.md` before interpreting results.
 
 | Date | Deviation | Reason | Affected runs | Approved by | Effect on comparability |
 |---|---|---|---|---|---|
-| | | | | | |

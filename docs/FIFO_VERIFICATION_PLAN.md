@@ -5,12 +5,28 @@
 | **Design Name** | `sync_fifo` |
 | **Author** | — |
 | **Date Created** | 2026-09-17 |
-| **Last Updated** | 2026-09-17 |
-| **Version** | 1.0 |
+| **Last Updated** | 2026-09-25 |
+| **Version** | 1.1 |
 | **Status** | Draft |
 | **Tools** | Questa 2021.2 (primary), iverilog + GTKWave (backup) |
 | **Methodology** | UVM (Universal Verification Methodology) |
 | **Language** | SystemVerilog (IEEE 1800-2017) |
+
+## Change log (Lịch sử thay đổi) — newest first
+
+| Date | Version | Change |
+|------|---------|--------|
+| 2026-09-25 | 1.1 | Added §0 (role of the FIFO in the HT study). Added D10 and features F13–F14. Added §3.7 knob-driven sequence library, §3.8 scoreboard reference rules (fixes R5), §3.9 interface issues (ISSUE-001/002). Added §4.5 spec-derived rare-bin register for G0. Assertions: fixed A01 (`|=>` → `|->`) and A04/A05; corrected A06 mapping; added interface-level A08–A11 and a BB/GB column. Added tests T11–T15 and milestones M9–M10. Risks R5 corrected; R6–R8 added. |
+| 2026-09-17 | 1.0 | Initial plan. |
+
+---
+
+## 0. Role of This DUT in the Hardware Trojan Study
+
+- **MVP host only.** The FIFO is used to build and shake down the UVM + policy pipeline, and as a host for generated (Tier-B) Trojans with controlled rarity. It is not standalone evidence; the study needs at least three DUTs (see `01_scope_threat_model.md` §3).
+- **Coverage closure is not the research target.** Gadde et al. (SMACD 2024) report that random and RL stimulus both reach 100% FIFO code coverage in about 22–31 stimuli. The research target is activation of rare sequential Trojan triggers.
+- **Trojan-agnostic plan.** Everything in this plan (coverage, rare-bins, detectors, knobs) is derived from the FIFO specification only. It is frozen and hashed at gate G0 **before** any FIFO Trojan is generated. The blue owner maintains this document; the red owner never edits it.
+- **Detector admissibility.** Only interface-level checks (scoreboard, assertions on ports) are admissible as black-box (BB) detectors. Assertions on internal signals are labelled GB/white-box and reported separately.
 
 ---
 
@@ -80,6 +96,7 @@ The DUT is a **synchronous FIFO** (First-In-First-Out) buffer operating in a sin
 | D7 | **Counter-based full/empty** | `count` register, not extra pointer bit | Simpler to verify — count is directly observable. |
 | D8 | **Pointer wrap via natural overflow** | `wr_ptr` is 5 bits, wraps 31→0 automatically | Works because DEPTH=32 is a power of 2. **Would break for non-power-of-2 depths.** |
 | D9 | **Memory not cleared on reset** | Only pointers and count reset, not `mem[]` | Old data remains in memory after reset, but is inaccessible (pointers reset). Not a bug, but worth knowing. |
+| D10 | **Simultaneous R/W at a boundary is gated per side** | `{wr_en && !full, rd_en && !empty}` | When full: only the read is accepted (count − 1). When empty: only the write is accepted (count + 1). The scoreboard must gate each side by the sampled flags (§3.8). |
 
 ---
 
@@ -96,9 +113,11 @@ The DUT is a **synchronous FIFO** (First-In-First-Out) buffer operating in a sin
 | F07 | Underflow protection | Read when `empty=1` is silently ignored — `data_out` holds last value | T07, A05 | P0 |
 | F08 | FIFO ordering (FIFO property) | Data read out in exact same order as written in | T08, scoreboard | P0 |
 | F09 | Simultaneous R/W | `wr_en=1 && rd_en=1` when neither full nor empty: both execute, count unchanged | T05, cx_wr_rd | P1 |
-| F10 | Pointer wrap-around | `wr_ptr`/`rd_ptr` correctly wrap from 31→0 after sustained operation | T10, A06 | P1 |
+| F10 | Pointer wrap-around | `wr_ptr`/`rd_ptr` correctly wrap from 31→0 after sustained operation | T10, scoreboard | P1 |
 | F11 | Full/empty mutual exclusion | `full` and `empty` are never both 1 simultaneously | A07 | P0 |
 | F12 | Stress robustness | No failures under 1000+ random constrained transactions | T09, coverage | P2 |
+| F13 | Simultaneous R/W at full/empty boundary | Full: read only accepted; empty: write only accepted (D10) | T11, T12, scoreboard | P0 |
+| F14 | Status flags consistent with reference occupancy | `full`/`empty` equal reference-model occupancy checks at every cycle | Scoreboard (DET-SB-02), A10, A11 | P0 |
 
 ---
 
@@ -179,8 +198,8 @@ flowchart TD
 
 ```
 SYNC_FIFO/
-├── sync_fifo.sv              ✅ RTL (DUT) — DONE
-├── fifo_if.sv                🟡 Interface — written, has bugs
+├── sync_fifo.sv              ✅ RTL (DUT) — DONE (uploaded as sync_fifo_clean.sv)
+├── fifo_if.sv                🟡 Interface — written, has bugs (§3.9: ISSUE-001, ISSUE-002)
 │
 │   ── UVM Testbench Classes ──
 ├── fifo_seq_item.sv          ❌ Sequence item (replaces fifo_transaction)
@@ -194,6 +213,12 @@ SYNC_FIFO/
 ├── fifo_env.sv               ❌ UVM environment
 ├── fifo_test.sv              ❌ UVM test(s) — one class per test scenario
 │
+│   ── Knob layer / policy hook (v1.1) ──
+├── fifo_knobs.sv             ❌ Knob configuration object (levels frozen at G0, §3.7)
+├── fifo_knob_seq.sv          ❌ Knob-driven sequence (reads knob vector per test)
+├── fifo_policy_if.sv         ❌ Policy hook stub (DPI-C or file handshake); no oracle access
+├── fifo_rare_cov.sv          ❌ Pre-registered rare-bin covergroups (§4.5)
+│
 │   ── Assertions ──
 ├── fifo_assertions.sv        ❌ SVA bind module
 │
@@ -204,7 +229,7 @@ SYNC_FIFO/
 └── README.md                 ❌ Documentation
 ```
 
-**Total: 16 files** (1 done, 1 with bugs, 14 to create)
+**Total: 20 files** (1 done, 1 with bugs, 18 to create)
 
 ### 3.5 Compile Order
 
@@ -240,6 +265,59 @@ package fifo_pkg;
   `include "fifo_test.sv"          // 10. test (depends on env + sequences)
 endpackage
 ```
+
+> v1.1: add `fifo_knobs.sv` and `fifo_knob_seq.sv` after `fifo_sequence.sv`, and `fifo_rare_cov.sv` after `fifo_coverage.sv`.
+
+### 3.7 Knob-Driven Sequence Library (DUT-agnostic interface)
+
+The policy never picks FIFO-specific scenarios. Each test, it sets a knob vector (definitions in `01_scope_threat_model.md` §9.1). For the FIFO, knob applicability comes from the item fields (`wr_en`, `rd_en`, `data_in`) plus generic knobs:
+
+| Knob | FIFO meaning | Levels |
+|------|--------------|--------|
+| `k_mix` | Weights over op kinds {WR, RD, WR+RD, IDLE} | 5 presets |
+| `k_burst` | Run length of the same op kind | short (1–2) / medium (3–8) / long (9–40) |
+| `k_gap` | IDLE cycles between bursts | 0 / 1–4 / 5–20 |
+| `k_data` | `data_in` mode | uniform / corner {00, FF, 01, 80, walking-1} / repeat-last / reuse-from-history |
+| `k_reset` | Reset injection per transaction | 0 / 0.1% / 1% |
+| `k_replay` | Replay a recent subsequence with small mutations | off / on |
+
+**Named FIFO vectors (the old A0–A6 profiles expressed as knobs):**
+
+| Name | Knob vector | Intent |
+|------|-------------|--------|
+| A0 = π₀ (baseline) | `k_mix` = T09 distribution (`wr_en` 60/40, `rd_en` 40/60), medium burst, gap 0, uniform data, reset 0, replay off | Frozen baseline policy |
+| A1 | WR-heavy `k_mix` | Approach full |
+| A2 | RD-heavy `k_mix` | Approach empty |
+| A3 | WR+RD-heavy `k_mix` | Concurrency |
+| A4 | Alternating WR-heavy and RD-heavy long bursts | Boundary transitions |
+| A5 | `k_reset` = 1% | Reset interleaving |
+| A6 | `k_data` = repeat-last or corner | Data-pattern conditions |
+
+Test length N, the knob levels and π₀ are frozen at G0.
+
+### 3.8 Scoreboard Reference-Model Rules (fixes R5)
+
+The reference model tracks its **own** occupancy. It never trusts the DUT's `full`/`empty`, so a corrupted flag cannot mislead it. On each monitor sample (pre-edge values):
+
+```text
+if (!rst_n):           ref_q.delete(); expect data_out == 0 next sample; skip checks
+DET-SB-02 (flags):     check full  == (ref_q.size() == DEPTH)
+                       check empty == (ref_q.size() == 0)
+wr_acc = wr_en && (ref_q.size() != DEPTH)
+rd_acc = rd_en && (ref_q.size() != 0)
+if (rd_acc)            exp = ref_q.pop_front()     // compare with data_out at the NEXT sample (DET-SB-01)
+if (wr_acc)            ref_q.push_back(data_in)
+if (!rd_acc)           expect data_out unchanged at the next sample
+```
+
+This handles D10: when empty with both enables, only the write is accepted, so the scoreboard does not pop the word just written.
+
+### 3.9 Known Interface Issues (from the 2026-09-19 review)
+
+| ID | Problem in `fifo_if.sv` | Fix |
+|----|-------------------------|-----|
+| ISSUE-001 | `endclocking: mon_cb_cb` does not match the block name `mon_cb` → compile error | `endclocking : mon_cb` |
+| ISSUE-002 | `mon_cb` has no `rst_n`, so the monitor and scoreboard cannot see reset; `rst_n` is driven outside the clocking block | Add `input rst_n` to `mon_cb`; optionally drive `rst_n` through `drv_cb` as an output to avoid races |
 
 ---
 
@@ -289,22 +367,50 @@ endpackage
 5. Re-run all tests → merge coverage → check ≥95%
 ```
 
+### 4.5 Spec-Derived Rare-Bin Register (candidate list for G0 pre-registration)
+
+**Rules.** Derived only from the FIFO specification; written by the blue owner; frozen and hashed at G0 **before** any FIFO Trojan exists. A bin enters the rare-bin denominator only after a blue-written directed test (T15-xx) reaches it. The list below is a proposal for the blue owner to edit, then freeze. After G0 it is never edited; changes become deviations.
+
+All bins are observable from interface signals (BB-admissible). "Accepted" means gated by reference occupancy (§3.8).
+
+| ID | Rare behaviour (interface-observable) | Reachability test |
+|----|----------------------------------------|-------------------|
+| RB-01 | ≥3 consecutive write attempts while `full` | T15-01 |
+| RB-02 | ≥3 consecutive read attempts while `empty` | T15-02 |
+| RB-03 | `wr_en && rd_en` while `full` (only the read accepted) | T11 |
+| RB-04 | `wr_en && rd_en` while `empty` (only the write accepted) | T12 |
+| RB-05 | `full` → `empty` within ≤ DEPTH + 4 cycles (near-continuous drain) | T04 |
+| RB-06 | `empty` → `full` within ≤ DEPTH + 4 cycles (near-continuous fill) | T03 |
+| RB-07 | ≥ 4·DEPTH accepted writes in one test (≥4 pointer wraps) | T10 |
+| RB-08 | Reset asserted while `full` | T13 |
+| RB-09 | Reset asserted with 1 ≤ occupancy ≤ DEPTH − 1 | T13 |
+| RB-10 | ≥4 consecutive accepted writes with identical `data_in` | T15-10 |
+| RB-11 | Alternating `00`/`FF` over ≥4 consecutive accepted writes | T15-11 |
+| RB-12 | ≥8 consecutive cycles of accepted simultaneous R/W at occupancy ≥ DEPTH − 4 | T15-12 |
+| RB-13 | ≥16 consecutive IDLE cycles followed by ≥8 consecutive accepted writes | T15-13 |
+
 ---
 
 ## 5. Assertion Plan
 
-| ID | Property Name | Type | SVA Description | Condition | Feature |
-|----|--------------|------|-----------------|-----------|---------|
-| A01 | `p_reset_state` | Concurrent | After reset de-asserts, FIFO must be in clean initial state | `$rose(rst_n) \|=> (empty && !full)` | F01 |
-| A02 | `p_full_at_depth` | Concurrent | Full must be high if and only if count equals DEPTH | `(count == DEPTH) \|-> full` and `full \|-> (count == DEPTH)` | F04 |
-| A03 | `p_empty_at_zero` | Concurrent | Empty must be high if and only if count equals 0 | `(count == 0) \|-> empty` and `empty \|-> (count == 0)` | F05 |
-| A04 | `p_no_wr_ptr_change_when_full` | Concurrent | Write pointer must not change when FIFO is full | `full \|=> $stable(wr_ptr) \|\| !full` | F06 |
-| A05 | `p_no_rd_ptr_change_when_empty` | Concurrent | Read pointer must not change when FIFO is empty | `empty \|=> $stable(rd_ptr) \|\| !empty` | F07 |
-| A06 | `p_count_bounds` | Concurrent | Count must never exceed DEPTH or go negative | `count <= DEPTH` (always) | F10 |
-| A07 | `p_full_empty_mutex` | Concurrent | Full and empty must never both be high | `!(full && empty)` (always) | F11 |
+| ID | Property Name | Type | SVA Description | Condition | Feature | Observability |
+|----|--------------|------|-----------------|-----------|---------|---------------|
+| A01 | `p_reset_state` | Concurrent | In the first cycle after reset release, the FIFO is in its initial state | `$rose(rst_n) \|-> (empty && !full && data_out == '0)` (v1.1: was `\|=>`, which fails falsely if a write occurs in the release cycle) | F01 | BB (ports) |
+| A02 | `p_full_at_depth` | Concurrent | Full must be high if and only if count equals DEPTH | `(count == DEPTH) \|-> full` and `full \|-> (count == DEPTH)` | F04 | GB (internal `count`) |
+| A03 | `p_empty_at_zero` | Concurrent | Empty must be high if and only if count equals 0 | `(count == 0) \|-> empty` and `empty \|-> (count == 0)` | F05 | GB (internal) |
+| A04 | `p_no_wr_ptr_change_when_full` | Concurrent | Write pointer must not change when FIFO is full | `full \|=> $stable(wr_ptr)` (v1.1: removed `\|\| !full`, which let the check pass vacuously when a read cleared `full`) | F06 | GB (internal) |
+| A05 | `p_no_rd_ptr_change_when_empty` | Concurrent | Read pointer must not change when FIFO is empty | `empty \|=> $stable(rd_ptr)` (v1.1: removed `\|\| !empty`) | F07 | GB (internal) |
+| A06 | `p_count_bounds` | Concurrent | Count must never exceed DEPTH | `count <= DEPTH` (always) | F04, F05 (v1.1: was mapped to F10) | GB (internal) |
+| A07 | `p_full_empty_mutex` | Concurrent | Full and empty must never both be high | `!(full && empty)` (always) | F11 | BB (ports) |
+| A08 | `p_underflow_holds_data` | Concurrent | A read attempt on empty FIFO leaves `data_out` unchanged | `(rd_en && empty) \|=> $stable(data_out)` | F07 | BB (ports) |
+| A09 | `p_data_out_changes_only_on_read` | Concurrent | `data_out` changes only after an accepted read | `!(rd_en && !empty) \|=> $stable(data_out)` | F03, F07 | BB (ports) |
+| A10 | `p_full_rise_needs_write` | Concurrent | `full` can only rise after a write request | `$rose(full) \|-> $past(wr_en)` | F04, F14 | BB (ports) |
+| A11 | `p_empty_rise_needs_read` | Concurrent | Outside reset, `empty` can only rise after a read request | `($rose(empty) && $past(rst_n)) \|-> $past(rd_en)` | F05, F14 | BB (ports) |
 
 > [!NOTE]
 > All concurrent assertions use `disable iff (!rst_n)` to suppress firing during reset.
+>
+> **HT-study admissibility (v1.1):** only BB rows (ports only) plus the scoreboard (DET-SB-01 data, DET-SB-02 flags) count as black-box detectors. GB rows use internal signals and are reported separately. A08–A11 are proposals for G0 and must be validated on the clean FIFO (zero failures in T01–T14) before freezing.
 
 ### Bind Strategy
 
@@ -343,6 +449,11 @@ bind sync_fifo fifo_sva sva_inst (.*);
 | T08 | `test_fifo_ordering` | P0 | Directed | Data | F08 |
 | T09 | `test_random_stress` | P2 | Random | All | F12, all |
 | T10 | `test_alternating_rw` | P1 | Directed | Temporal | F10 |
+| T11 | `test_simultaneous_rw_full` | P0 | Directed | Boundary + Adversarial | F13, F14 |
+| T12 | `test_simultaneous_rw_empty` | P0 | Directed | Boundary + Adversarial | F13, F14 |
+| T13 | `test_reset_during_traffic` | P1 | Directed | Reset | F01, F14 |
+| T14 | `test_knob_smoke` | P1 | Directed (knob sweep) | Infrastructure | F12 |
+| T15-xx | `test_rb_reach_xx` | P1 | Directed (one per rare bin) | Rare-bin reachability | §4.5 |
 
 ### 6.2 Detailed Test Specifications
 
@@ -512,9 +623,50 @@ bind sync_fifo fifo_sva sva_inst (.*);
 | **Prerequisite** | T01 |
 | **Stimulus** | 1. Reset. 2. Repeat 96 times (DEPTH × 3): write 1 word (incrementing data), then read 1 word. |
 | **Expected Behavior** | Every read returns the value just written. Pointers wrap from 31→0 three times without error. |
-| **Pass Criteria** | Scoreboard: 96 reads, 0 mismatches. No assertion violations (especially A06 — pointer bounds). |
+| **Pass Criteria** | Scoreboard: 96 reads, 0 mismatches across three pointer wraps. No assertion violations (A06 guards count bounds; pointer wrap correctness is shown by the scoreboard). |
 | **UVM Implementation** | Sequence with `repeat(96)` loop, alternating `{ wr_en==1; rd_en==0; }` then `{ wr_en==0; rd_en==1; }`. |
 | **Coverage Bins Hit** | `cp_occupancy{empty_, low_}` (oscillates between 0 and 1), pointer wrap coverage |
+
+---
+
+#### T11 — `test_simultaneous_rw_full` (v1.1)
+
+| Field | Detail |
+|-------|--------|
+| **Stimulus** | 1. Reset. 2. Fill to full (32 writes, data `0x00..0x1F`). 3. Drive `wr_en=1, rd_en=1` for 4 cycles with `data_in=0xEE`. 4. Drain. |
+| **Expected Behavior** | In the first R/W cycle only the read is accepted (D10); occupancy drops to 31 and `full` falls. Later R/W cycles accept both. `0xEE` appears in the drain only for writes accepted after `full` fell. |
+| **Pass Criteria** | Scoreboard 0 mismatches (DET-SB-01, DET-SB-02). A07–A11 clean. |
+| **Coverage Bins Hit** | RB-03, `cx_wr_full{(1,1)}` |
+
+#### T12 — `test_simultaneous_rw_empty` (v1.1)
+
+| Field | Detail |
+|-------|--------|
+| **Stimulus** | 1. Reset. 2. Drive `wr_en=1, rd_en=1` with `data_in=0x5A` for 1 cycle while empty. 3. Idle 1 cycle. 4. Read once. |
+| **Expected Behavior** | Only the write is accepted in step 2; `data_out` unchanged. The step-4 read returns `0x5A`. |
+| **Pass Criteria** | Scoreboard does not pop in step 2 (§3.8); 0 mismatches; A08/A09 clean. |
+| **Coverage Bins Hit** | RB-04, `cx_rd_empty{(1,1)}` |
+
+#### T13 — `test_reset_during_traffic` (v1.1)
+
+| Field | Detail |
+|-------|--------|
+| **Stimulus** | (a) Fill to full, assert reset 3 cycles, release, write/read 4 words. (b) Same with occupancy 16. |
+| **Expected Behavior** | After release: `empty=1`, `full=0`, `data_out=0`; old contents inaccessible (D9); new words read back in order. |
+| **Pass Criteria** | Scoreboard clears its queue on reset; 0 mismatches; A01 passes. |
+| **Coverage Bins Hit** | RB-08, RB-09 |
+
+#### T14 — `test_knob_smoke` (v1.1)
+
+| Field | Detail |
+|-------|--------|
+| **Stimulus** | Run each knob level of §3.7 once for N transactions, plus each named vector A0–A6. |
+| **Expected Behavior** | Every knob setting produces legal traffic; scoreboard and assertions clean on the clean FIFO. |
+| **Pass Criteria** | 0 errors; per-knob coverage summary logged (input to the G0 freeze). |
+
+#### T15-xx — rare-bin reachability (v1.1)
+
+One short directed test per rare bin in §4.5 that is not already reached by T03, T04, T10, T11, T12 or T13. Written by the blue owner from the spec only. A bin that no test reaches is marked unreachable and excluded from the rare-bin denominator, with a justification in the decision log.
 
 ---
 
@@ -540,6 +692,16 @@ bind sync_fifo fifo_sva sva_inst (.*);
 > [!NOTE]
 > **F11** (full/empty mutex) has no dedicated test — it's verified **continuously** by assertion A07 during every test. This is fine; not every feature needs a directed test if an assertion guards it 100% of the time.
 
+**Supplement (v1.1) for new features and tests**
+
+| | T11 | T12 | T13 | T14 | T15-xx | Scoreboard / SVA |
+|------|:---:|:---:|:---:|:---:|:---:|:---:|
+| F01 | | | ✅ | | | A01 |
+| F12 | | | | ✅ | | |
+| F13 | ✅ | ✅ | | | | DET-SB-01 |
+| F14 | ✅ | ✅ | ✅ | | | DET-SB-02, A10, A11 |
+| Rare bins (§4.5) | RB-03 | RB-04 | RB-08, RB-09 | | others | |
+
 ---
 
 ## 7. Milestones & Schedule
@@ -550,10 +712,12 @@ bind sync_fifo fifo_sva sva_inst (.*);
 | M2 | Interface done | `fifo_if.sv` compiles, no warnings | 🟡 Fix bugs |
 | M3 | UVM skeleton runs | `fifo_seq_item` + `fifo_driver` + `fifo_monitor` + `top.sv` compile. Reset test prints `UVM_INFO`. | — |
 | M4 | Scoreboard integrated | Random test runs end-to-end. Scoreboard reports pass/fail. | — |
-| M5 | All directed tests pass | T01–T08, T10 all PASS | — |
+| M5 | All directed tests pass | T01–T08, T10–T13 all PASS | — |
 | M6 | Coverage targets met | Functional >95%, code >90% | — |
-| M7 | Assertions clean | All 7 SVA properties active, zero violations in passing tests | — |
+| M7 | Assertions clean | All 11 SVA properties (A01–A11) active, zero violations in passing tests | — |
 | M8 | Sign-off | README written, Makefile works, can explain every line | — |
+| M9 | G0 pre-registration (v1.1) | Covergroups, rare-bin register (§4.5), BB detectors (A01, A07–A11, DET-SB-01/02), knob levels and π₀ frozen, tagged and hashed; advisor signed. **Before any FIFO Trojan exists.** | — |
+| M10 | Knob layer + policy hook (v1.1) | `fifo_knob_seq` runs every knob level (T14); policy hook stub exchanges knob vectors and coverage deltas; no oracle path (audit per protocol §15) | — |
 
 ---
 
@@ -565,4 +729,7 @@ bind sync_fifo fifo_sva sva_inst (.*);
 | R2 | Pointer wrap only works for power-of-2 DEPTH | Tests pass at DEPTH=32 but design breaks at DEPTH=20 | Medium | Add parameterized test with non-power-of-2 DEPTH. Note: current RTL would fail this — it's a known limitation. |
 | R3 | UVM `config_db` / virtual interface wiring errors | Simulation crashes before any test runs | High (first time) | Start simple: get `top.sv` → `fifo_if` → `DUT` working first, then add UVM classes one at a time. |
 | R4 | Random constraints don't hit corner cases (full, empty) | Low functional coverage on `cx_wr_full`, `cx_rd_empty` | Medium | Write directed tests T06, T07 specifically for these corners. Adjust `dist` weights if needed. |
-| R5 | Simultaneous R/W scoreboard logic mismatches RTL | Scoreboard pushes and pops in wrong order for same-cycle R+W | Medium | Process write BEFORE read in scoreboard (matches RTL behavior: write to `wr_ptr`, read from `rd_ptr`). |
+| R5 | Simultaneous R/W scoreboard logic mismatches RTL | Scoreboard pushes and pops in wrong order for same-cycle R+W | Medium | **v1.1 correction:** "process write before read" is wrong when the FIFO is empty (RTL accepts only the write; a naive push-then-pop would pop the new word). Gate each side by the reference model's own occupancy, pop before push, and check flags separately (§3.8). |
+| R6 | `fifo_if.sv` compile and reset-visibility bugs (ISSUE-001, ISSUE-002) | Nothing compiles; scoreboard misses resets | Certain until fixed | Apply fixes in §3.9 before M3. |
+| R7 | FIFO coverage closes trivially (Gadde et al., SMACD 2024) | FIFO results say nothing about RL value | High | Treat FIFO as pipeline and Tier-B host only; the research target is rare Trojan triggers (§0). |
+| R8 | Rare-bins or detectors edited after Trojans exist | Oracle leakage; invalid results | Medium | Freeze at M9 (G0) before any Trojan; later edits become logged deviations. |
