@@ -1,3 +1,10 @@
+// =============================================================================
+// LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
+// 2026-10-13: Bỏ dòng @(posedge vif.clk) thừa trước khi đọc data_out (vấn đề 2):
+//             mỗi mẫu giờ đúng 1 chu kỳ, data_out lấy cùng cạnh qua mon_cb;
+//             scoreboard tự xử lý trễ 1 chu kỳ qua pending_read. rst_n lấy qua
+//             mon_cb để cùng thời điểm lấy mẫu với các tín hiệu khác.
+// =============================================================================
 class fifo_monitor extends uvm_monitor;
 
   `uvm_component_utils(fifo_monitor)
@@ -43,14 +50,13 @@ class fifo_monitor extends uvm_monitor;
   virtual task collect_transaction(fifo_seq_item item);
     @(vif.mon_cb); // sync to mon clock edge (clocking block)
 
-    item.wr_en   = vif.mon_cb.wr_en;
-    item.rst_n   = vif.rst_n;
-    item.rd_en   = vif.mon_cb.rd_en;
-    item.data_in = vif.mon_cb.data_in;
-    item.full    = vif.mon_cb.full;
-    item.empty   = vif.mon_cb.empty;
-    @(posedge vif.clk); // 1 cycle latency
-    item.data_out = vif.mon_cb.data_out;
+    item.wr_en    = vif.mon_cb.wr_en;
+    item.rst_n    = vif.mon_cb.rst_n;
+    item.rd_en    = vif.mon_cb.rd_en;
+    item.data_in  = vif.mon_cb.data_in;
+    item.full     = vif.mon_cb.full;
+    item.empty    = vif.mon_cb.empty;
+    item.data_out = vif.mon_cb.data_out; // kết quả của lần đọc ở cạnh TRƯỚC
     
   endtask
 endclass

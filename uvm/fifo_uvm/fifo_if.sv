@@ -1,3 +1,8 @@
+// =============================================================================
+// LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
+// 2026-10-13: Thêm rst_n vào output của drv_cb để driver kéo reset đồng bộ
+//             giữa mô phỏng (reset đầu test, k_reset) cùng skew với wr/rd.
+// =============================================================================
 interface fifo_if #(
   parameter int DATA_WIDTH = 8
 )
@@ -16,7 +21,7 @@ interface fifo_if #(
 //clocking block cho Driver (prevent Race cond)
   clocking drv_cb @(posedge clk);
     default input #1ns output #1ns;
-    output wr_en, rd_en, data_in;
+    output rst_n, wr_en, rd_en, data_in;
     input full, empty, data_out;
   endclocking: drv_cb
 

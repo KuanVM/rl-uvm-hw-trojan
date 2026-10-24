@@ -1,3 +1,10 @@
+// =============================================================================
+// LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
+// 2026-10-13: Thêm trường kích thích rst_req (không rand, mặc định 0) để
+//             sequence chèn reset giữa chừng (k_reset, reset đầu test);
+//             cập nhật do_copy, do_print, convert2string. Ràng buộc mặc định
+//             giữ nguyên nên luồng ngẫu nhiên của fifo_random_test không đổi.
+// =============================================================================
 class fifo_seq_item extends uvm_sequence_item;
 
 
@@ -5,6 +12,9 @@ class fifo_seq_item extends uvm_sequence_item;
   rand bit wr_en;
   rand bit rd_en;
   rand bit [7:0] data_in;
+
+  // stimulus khong rand: 1 = driver keo rst_n xuong trong chu ky nay
+  bit rst_req = 1'b0;
 
   // observation fieldz
   bit rst_n;
@@ -49,7 +59,7 @@ class fifo_seq_item extends uvm_sequence_item;
 
   // convert_2_string() - for a more peaceful debug experience, evrythangs have been organized beautifully, for visuali
   virtual function string convert2string();
-    return $sformatf("wr = %0b, rd = %0b, d_in = %0b, d_out = %0b, full = %0b, empty = %0b", wr_en, rd_en, data_in, data_out, full, empty);
+    return $sformatf("rst_req = %0b, wr = %0b, rd = %0b, d_in = %0b, d_out = %0b, full = %0b, empty = %0b", rst_req, wr_en, rd_en, data_in, data_out, full, empty);
   endfunction
 
   
@@ -72,6 +82,7 @@ class fifo_seq_item extends uvm_sequence_item;
     this.wr_en    = rhs_.wr_en;
     this.rd_en    = rhs_.rd_en;
     this.rst_n    = rhs_.rst_n;
+    this.rst_req  = rhs_.rst_req;
     this.data_in  = rhs_.data_in;
     this.data_out = rhs_.data_out;
     this.full     = rhs_.full;
@@ -100,6 +111,7 @@ class fifo_seq_item extends uvm_sequence_item;
     printer.print_field("wr_en",    wr_en,    1, UVM_BIN);
     printer.print_field("rd_en",    rd_en,    1, UVM_BIN);
     printer.print_field("rst_n",    rst_n,    1, UVM_BIN);
+    printer.print_field("rst_req",  rst_req,  1, UVM_BIN);
     printer.print_field("data_in",  data_in,  8, UVM_HEX);
     printer.print_field("data_out", data_out, 8, UVM_HEX);
     printer.print_field("full",     full,     1, UVM_BIN);

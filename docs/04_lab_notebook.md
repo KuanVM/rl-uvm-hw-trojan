@@ -10,6 +10,7 @@
 
 | Date | Change |
 |---|---|
+| 2026-10-24 | Added daily-log entry "RL loop infrastructure validated on Windows / Questa 2024.1" (pseudo-target RB-01; not a research result). |
 | 2026-09-25 | Scope renamed from FIFO-only to multi-DUT study. Added daily-log entry for the advisor review. Filled decision register DEC-001…DEC-013 and issue register ISSUE-001…ISSUE-007. Added sections H (pre-registration record), I (knowledge-exposure log) and J (advisor review record). Updated the experiment registry and work packages. Templates kept unchanged. |
 | — | Initial template (FIFO baseline). |
 
@@ -130,6 +131,79 @@
 - ISSUE-001/002 → fix `fifo_if.sv` → Blue.
 - Decisions DEC-003…DEC-013 need advisor confirmation → send `05_advisor_response.md` → `[owner]`.
 - Assign blue and red owners → team.
+
+---
+
+## 2026-10-24 - RL loop infrastructure validated on Windows / Questa 2024.1
+
+**Author:** Minh Đức  
+**Time spent:** `[hours]`  
+**Phase:** UVM / baseline
+
+> Loop check only. RB-01 is a spec-derived pseudo-target, not a Trojan. Nothing below is a research result.
+
+### Goal for today
+- [x] Run the original FIFO testbench on Windows with Questa 2024.1.
+- [x] Apply the RL infrastructure package (knobs, knob sequence, bandit, RL observer, CSV logger, loop test).
+- [x] Run the RL loop with B0 (fixed A0), B1 (uniform random), UCB1 and ε-greedy on RB-01, 10 seeds.
+
+### Work completed
+- Toolchain on Windows: Questa Sim-64 2024.1 (win64), UVM-1.1d built-in (same UVM as the Linux host). ModelSim Intel FPGA Starter 2020.1 was first on PATH; Questa moved ahead of it.
+- Added `run.do` and `run_rl.do`. Windows has no `make`, and these work on Windows and Linux.
+- Original `fifo_random_test`: 0 data and 0 flag mismatches; total 1999 (known end-of-test objection issue). Covergroup 90% with seed 1, 100% with seed 2.
+- Found that the original Makefile never set the seed: `+ntb_random_seed` is VCS syntax and Questa ignores it; plusargs with whitespace before `=` were split (see `transcript`, vsim-3369). Fixed in the RL package Makefile (`-sv_seed`).
+- RL package applied on branch `rl-infra`. With monitor, scoreboard and driver changes, every RL run reports 0 data, 0 flag and 0 hold (new check 1.4) mismatches.
+
+### Commands executed
+```powershell
+vsim -c -do "set SEED 2; do run.do"
+vsim -c -do run_rl.do                                                   # fixed, random, ucb1; binary
+vsim -c -do "set POLICIES {random ucb1 egreedy}; set REWARD graded; do run_rl.do"
+python scripts\rl_summary.py results\rl
+```
+
+Settings: B = 200 tests per simulation, N = 40 transactions per test, 2 reset cycles at the start of each test, seeds 1–10, UCB1 c = 1.0, ε = 0.1. Arms = presets A0–A9.
+
+### Files created or changed
+| Path | Change | Commit/hash |
+|---|---|---|
+| `uvm/fifo_uvm/fifo_knobs.sv`, `fifo_knob_seq.sv`, `fifo_rl_observer.sv`, `rl_bandit.sv`, `rl_csv_logger.sv`, `fifo_rl_test.sv` | New | `[hash]` |
+| `uvm/fifo_uvm/fifo_seq_item.sv`, `fifo_if.sv`, `fifo_driver.sv`, `fifo_monitor.sv`, `fifo_scoreboard.sv`, `fifo_sequence.sv`, `fifo_test.sv`, `fifo_env.sv`, `fifo_pkg.sv`, `fifo_top.sv` | Changed (headers list each change) | `[hash]` |
+| `Makefile` | Seed and plusarg fixes; RL targets | `[hash]` |
+| `run.do`, `run_rl.do`, `scripts/rl_summary.py` | New | `[hash]` |
+| `results/rl/*.csv`, `results/rl/*.log` | Run outputs | `[hash]` |
+
+### Observations
+
+RB-01 = at least 3 consecutive cycles with `wr_en=1` while the spec occupancy model is full. 10 seeds per row.
+
+| Policy | Reward | First-hit test (median) | Seeds without a hit | Hit tests / 200 (mean, min–max) | Pulls of A1 (of 2000) |
+|---|---|---|---|---|---|
+| fixed (A0) | binary | NA | 10 | 0.0 (0–0) | 0 |
+| random | binary | 19.5 | 0 | 5.5 (3–11) | 194 |
+| random | graded | 19.5 | 0 | 5.5 (3–11) | 194 |
+| ucb1 | binary | 47.0 | 0 | 7.0 (2–14) | 301 |
+| ucb1 | graded | 44.5 | 0 | 9.4 (2–15) | 364 |
+| egreedy | graded | 21.5 | 0 | 20.1 (1–29) | 1184 |
+
+- B0 never reaches RB-01 at N = 40, as predicted offline. B1 hit count matches the offline estimate (about 2.5% per test).
+- random/graded is identical to random/binary. The random policy ignores reward, so the same seed gives the same trajectory. This confirms run-to-run reproducibility.
+- First-hit test does not separate random from UCB1 (binary: permutation test p ≈ 0.29, 10 seeds). Seeds range from 4 to about 150.
+- UCB1 with c = 1 barely exploits in 200 tests. The best arm (A1) reaches RB-01 in about 16% of tests and the others in about 0%, so the gap in mean reward is about 0.16. The exploration bonus sqrt(2 ln t / n) is about 0.73 at t = 200, n = 20. UCB1 therefore stays close to round-robin. This is the known UCB1 weakness with sparse, small rewards.
+- ε-greedy with graded reward concentrates on A1 (59% of pulls) and A4, and gets about 3.7× the hit tests of random. One seed got only 1 hit test: greedy can lock onto a weak arm early. ε-greedy/binary was not run, so reward effect and policy effect are not separated yet.
+- Implication for the real study: a binary "activated or not" reward gives almost no learning signal for rare triggers. This supports a dense reward (new bins, rare-bins), already planned in scope §9.3.
+
+### Evidence
+- CSV and logs: `results/rl/rl_<policy>_<reward>_s<seed>.csv` / `.log`
+- Summary: output of `python scripts\rl_summary.py results\rl` (table above)
+
+### Open issues and next action
+- Run ε-greedy/binary to separate reward and policy effects → Minh Đức.
+- Fix UCB1 c and ε before any Trojan work (pre-registration). Do not tune them on Trojan results → team.
+- Report per-seed hit counts and add a test on hit tests, not only first-hit → update `rl_summary.py`.
+- ISSUE-001/002 appear fixed in the current `fifo_if.sv` (`endclocking: mon_cb`; `rst_n` in `mon_cb`) → confirm and update the issue register.
+- Original testbench issue 1 (SVA not bound; `error(` typo; vacuous `|| !full`) still open.
+
 
 ---
 
