@@ -1,3 +1,10 @@
+// =============================================================================
+// LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
+// 2026-10-13: Thêm kiểm tra 1.4 "data_out giữ nguyên khi không đọc" (vấn đề 4):
+//             theo dõi exp_dout (0 sau reset, = giá trị đọc gần nhất), đếm riêng
+//             hold_mismatch_count; sau mỗi lỗi đồng bộ lại theo DUT để không báo
+//             dây chuyền. Đếm reset_count. Thêm hold mismatch vào tổng kết.
+// =============================================================================
 //checker + golden model 
 
 class fifo_scoreboard extends uvm_scoreboard;
@@ -10,12 +17,15 @@ class fifo_scoreboard extends uvm_scoreboard;
   bit [7:0] ref_queue[$];
   bit       pending_read = 0;
   bit [7:0] pending_expected = 0;
+  bit [7:0] exp_dout         = 0;   // giá trị data_out mong đợi ở mẫu này (0 sau reset)
 
   // counters for reporting
   int unsigned pass_match_count        = 0;
   int unsigned failed_mismatch_count   = 0;
   int unsigned total_count             = 0;
   int unsigned flag_mismatch_count     = 0;
+  int unsigned hold_mismatch_count     = 0;   // 1.4 data_out đổi khi không có đọc
+  int unsigned reset_count             = 0;
   localparam int DEPTH                 = 32;
 
   // constructor
@@ -51,6 +61,8 @@ class fifo_scoreboard extends uvm_scoreboard;
     if (!item.rst_n) begin
       ref_queue.delete();
       pending_read = 0;
+      exp_dout     = 8'h00;  // DUT xoá data_out ở cạnh reset này
+      reset_count++;
       total_count++;
       return; // skip all other checks during reset
     end
@@ -68,7 +80,17 @@ class fifo_scoreboard extends uvm_scoreboard;
         
         failed_mismatch_count++;
       end
+      exp_dout     = item.data_out; // đồng bộ lại theo DUT (không báo dây chuyền ở 1.4)
       pending_read = 0;
+    end
+    // 1.4 data_out hold check: cạnh trước không có lần đọc hợp lệ -> data_out phải giữ nguyên
+    else begin
+      if (item.data_out !== exp_dout) begin
+        `uvm_error(get_type_name(),
+        $sformatf("1.4 [FIFO_DOUT_HOLD_CHK] FAIL: data_out = 0x%02h đổi khi không đọc, expected hold = 0x%02h", item.data_out, exp_dout))
+        hold_mismatch_count++;
+        exp_dout = item.data_out;   // đồng bộ lại
+      end
     end
 
     // 1.2 FIFO flag check (full / empty must match ref_queue size)
@@ -108,17 +130,16 @@ class fifo_scoreboard extends uvm_scoreboard;
           ref_queue.push_back(item.data_in);
         end
 
-      // --- unchanged data_out check; if no valid read, data_out must be stable ---
-        
+      // --- unchanged data_out check: xem 1.4 ở đầu mẫu kế tiếp ---
     end
     total_count++;
   endfunction
 
   virtual function void report_phase(uvm_phase phase);
     `uvm_info(get_type_name(),
-      $sformatf("\n========================================\n  SCOREBOARD SUMMARY\n  Total transactions : %0d\n  Data matches (1.1 FIFO_data_out check): %0d\n  Data mismatches: %0d\n  Flag mismatches (1.2): %0d\n========================================", total_count, pass_match_count, failed_mismatch_count, flag_mismatch_count), UVM_LOW
+      $sformatf("\n========================================\n  SCOREBOARD SUMMARY\n  Total transactions : %0d\n  Data matches (1.1 FIFO_data_out check): %0d\n  Data mismatches: %0d\n  Flag mismatches (1.2): %0d\n  Hold mismatches (1.4): %0d\n  Resets seen: %0d\n========================================", total_count, pass_match_count, failed_mismatch_count, flag_mismatch_count, hold_mismatch_count, reset_count), UVM_LOW
     )
-    if (failed_mismatch_count >0 || flag_mismatch_count > 0) begin 
+    if (failed_mismatch_count > 0 || flag_mismatch_count > 0 || hold_mismatch_count > 0) begin 
       `uvm_error(get_type_name(), "SCOREBOARD: TEST FAILED - mismatches detected")
     end
   endfunction

@@ -1,3 +1,9 @@
+// =============================================================================
+// LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
+// 2026-10-13: Watchdog mặc định 100.000.000 ns (100 ms), chỉnh bằng
+//             +WATCHDOG_NS=<ns> (vấn đề 5); in thời điểm hết giờ. Dump VCD tắt
+//             được bằng +NODUMP (vòng lặp RL dài sẽ sinh VCD rất lớn).
+// =============================================================================
 `timescale 1ns/1ps
 
 module fifo_top;
@@ -36,15 +42,20 @@ module fifo_top;
     run_test();       // test selected by +UVM_TESTNAME
   end
 
-  // Timeout watchdog
+  // Timeout watchdog: mặc định 100 ms thời gian mô phỏng (~10^7 chu kỳ @10 ns).
+  // 1.000 test x ~204 chu kỳ x 10 ns ~ 2 ms, nên còn dư nhiều. Đổi bằng +WATCHDOG_NS=<ns>.
+  longint unsigned watchdog_ns = 64'd100_000_000;
   initial begin
-    #1000000ns;
-    `uvm_fatal("TIMEOUT", "Simulation exceeded time limit")
+    void'($value$plusargs("WATCHDOG_NS=%d", watchdog_ns));
+    #(watchdog_ns * 1ns);
+    `uvm_fatal("TIMEOUT", $sformatf("Simulation exceeded time limit (%0d ns, +WATCHDOG_NS)", watchdog_ns))
   end
 
   initial begin
-    $dumpfile("fifo_dump.vcd");
-    $dumpvars(0, fifo_top);
+    if (!$test$plusargs("NODUMP")) begin
+      $dumpfile("fifo_dump.vcd");
+      $dumpvars(0, fifo_top);
+    end
   end
 
 endmodule
