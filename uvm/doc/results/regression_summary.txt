@@ -1,0 +1,48 @@
+
+TEST                         SEED   RESULT
+----                         ----   ------
+fifo_test_reset              1      PASS
+fifo_test_reset              2      PASS
+fifo_test_reset              3      PASS
+fifo_test_reset              4      PASS
+fifo_test_reset              5      PASS
+fifo_test_fill_drain         1      PASS
+fifo_test_fill_drain         2      PASS
+fifo_test_fill_drain         3      PASS
+fifo_test_fill_drain         4      PASS
+fifo_test_fill_drain         5      PASS
+fifo_test_write_when_full    1      PASS
+fifo_test_write_when_full    2      PASS
+fifo_test_write_when_full    3      PASS
+fifo_test_write_when_full    4      PASS
+fifo_test_write_when_full    5      PASS
+fifo_test_random             1      PASS
+fifo_test_random             2      PASS
+fifo_test_random             3      PASS
+fifo_test_random             4      PASS
+fifo_test_random             5      PASS
+
+Total: 20 runs, 20 PASS, 0 FAIL
+
+== Coverage summary (merged) ==
+QuestaSim-64 vcover 2021.2_1 Coverage Utility 2021.05 May 15 2021
+Start time: 01:14:54 on Nov 06,2026
+vcover report -summary out/regress/merged.ucdb 
+Coverage Report Totals BY INSTANCES: Number of Instances 7
+
+    Enabled Coverage              Bins      Hits    Misses    Weight  Coverage
+    ----------------              ----      ----    ------    ------  --------
+    Assertions                      10        10         0         1   100.00%
+    Branches                        13        12         1         1    92.30%
+    Conditions                       4         4         0         1   100.00%
+    Covergroups                      1        na        na         1   100.00%
+        Coverpoints/Crosses          8        na        na         1        na
+            Covergroup Bins         24        24         0         1   100.00%
+    Directives                       5         5         0         1   100.00%
+    Expressions                      2         2         0         1   100.00%
+    Statements                      18        17         1         1    94.44%
+    Toggles                         76        75         1         1    98.68%
+Total coverage (filtered view): 98.17%
+
+End time: 01:14:54 on Nov 06,2026, Elapsed time: 0:00:00
+Errors: 0, Warnings: 0

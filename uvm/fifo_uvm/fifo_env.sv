@@ -1,46 +1,39 @@
-// =============================================================================
-// LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
-// 2026-10-13: Thêm fifo_rl_observer (rl_obs) nối vào analysis_port của monitor
-//             để vòng lặp RL đo bin mới, RB-01 và số chu kỳ theo từng test.
-// =============================================================================
+// fifo_env: agent, scoreboard and coverage. The monitor feeds both checkers.
+
 class fifo_env extends uvm_env;
+
   `uvm_component_utils(fifo_env)
 
-  // uvc handles
-  fifo_agent        agent;
-  fifo_scoreboard   scoreboard;
-  fifo_coverage     coverage;
-  fifo_rl_observer  rl_obs;     // thống kê theo từng test cho vòng lặp RL
+  fifo_agent      agt;  // FIFO interface agent (sequencer, driver, monitor)
+  fifo_scoreboard scb;  // Scoreboard checking DUT against reference model
+  fifo_coverage   cov;  // Coverage subscriber tracking verification closure
 
-  // agents for multi-if DUTS /* will write later
-
-
-  // constructor
   function new(string name = "fifo_env", uvm_component parent = null);
     super.new(name, parent);
-  endfunction
+  endfunction : new
 
-  // build phase - create all children
   virtual function void build_phase(uvm_phase phase);
     super.build_phase(phase);
-    agent = fifo_agent::type_id::create("agent", this);
-    scoreboard = fifo_scoreboard::type_id::create("scoreboard", this);
-    coverage = fifo_coverage::type_id::create("coverage", this);
-    rl_obs = fifo_rl_observer::type_id::create("rl_obs", this);
-  endfunction
 
-  // connect phase - wire tlm ports
+    `uvm_info(get_type_name(), "Executing build_phase: creating sub-components...", UVM_HIGH)
+
+    agt = fifo_agent::type_id::create("agt", this);
+    scb = fifo_scoreboard::type_id::create("scb", this);
+    cov = fifo_coverage::type_id::create("cov", this);
+  endfunction : build_phase
+
   virtual function void connect_phase(uvm_phase phase);
     super.connect_phase(phase);
 
-    // monitor -> scoreboard (via analysis_fifo)
-    agent.monitor.analysis_port.connect(scoreboard.analysis_fifo.analysis_export);
+    `uvm_info(get_type_name(), "Executing connect_phase: connecting analysis ports...", UVM_HIGH)
 
-    // monitor -> coverage (via subscriber's built in export)
-    agent.monitor.analysis_port.connect(coverage.analysis_export);
+    // Monitor to scoreboard
+    `uvm_info(get_type_name(), "Connecting agt.mon.ap -> scb.mon_fifo.analysis_export", UVM_HIGH)
+    agt.mon.ap.connect(scb.mon_fifo.analysis_export);
 
-    // monitor -> RL observer
-    agent.monitor.analysis_port.connect(rl_obs.analysis_export);
-  endfunction
+    // Monitor to coverage
+    `uvm_info(get_type_name(), "Connecting agt.mon.ap -> cov.analysis_export", UVM_HIGH)
+    agt.mon.ap.connect(cov.analysis_export);
+  endfunction : connect_phase
 
-endclass
+endclass : fifo_env

@@ -40,7 +40,7 @@ endproperty
 
 a_full_empty_mutex: assert property (p_full_empty_mutex)
   else begin
-    error("Full & Empty both asserted!");
+    $error("Full & Empty both asserted!");
   end
 
 // Equiv properties
@@ -57,7 +57,7 @@ end
 // Tempo properties (sequence of events)
 
 property p_stable_wr_ptr_when_full;
-  full |=> $stable(wr_ptr) || !full;
+  full |=> $stable(wr_ptr);
 endproperty
 
 a_stable_wr_ptr_when_full: assert property (p_stable_wr_ptr_when_full)

@@ -1,0 +1,44 @@
+Bug injection report: sync_fifo (2026-11-06, seeds: 1 2 3 4 5)
+A run FAILS if UVM_ERROR/UVM_FATAL > 0, any '** Error' (SVA), or no scoreboard PASS.
+FIRST_ERR = earliest error time (ns) over the failing seeds.
+
+=== BUG_FULL_EARLY ===
+  TEST                         FAILED           FIRST_ERR  CHECKS FIRED
+  fifo_test_reset              0/5 seeds                   
+  fifo_test_fill_drain         5/5 seeds        375 ns     A02_FULL_IFF_DEPTH 
+  fifo_test_write_when_full    5/5 seeds        375 ns     A02_FULL_IFF_DEPTH 
+  fifo_test_random             5/5 seeds        1385 ns    A02_FULL_IFF_DEPTH SCB_MISMATCH 
+  => DETECTED
+
+=== BUG_WRITE_WHEN_FULL ===
+  TEST                         FAILED           FIRST_ERR  CHECKS FIRED
+  fifo_test_reset              0/5 seeds                   
+  fifo_test_fill_drain         0/5 seeds                   
+  fifo_test_write_when_full    5/5 seeds        395 ns     A04_NO_WR_WHEN_FULL SCB_MISMATCH 
+  fifo_test_random             5/5 seeds        1415 ns    A04_NO_WR_WHEN_FULL SCB_MISMATCH 
+  => DETECTED
+
+=== BUG_READ_WHEN_EMPTY ===
+  TEST                         FAILED           FIRST_ERR  CHECKS FIRED
+  fifo_test_reset              0/5 seeds                   
+  fifo_test_fill_drain         0/5 seeds                   
+  fifo_test_write_when_full    0/5 seeds                   
+  fifo_test_random             3/5 seeds        75 ns      A05_NO_RD_WHEN_EMPTY SCB_MISMATCH 
+  => DETECTED
+
+=== BUG_COUNT_RW ===
+  TEST                         FAILED           FIRST_ERR  CHECKS FIRED
+  fifo_test_reset              0/5 seeds                   
+  fifo_test_fill_drain         0/5 seeds                   
+  fifo_test_write_when_full    0/5 seeds                   
+  fifo_test_random             5/5 seeds        125 ns     A10_COUNT_STABLE_ON_RW SCB_MISMATCH SCB_UNDERFLOW 
+  => DETECTED
+
+=== BUG_DATA_BITFLIP ===
+  TEST                         FAILED           FIRST_ERR  CHECKS FIRED
+  fifo_test_reset              0/5 seeds                   
+  fifo_test_fill_drain         5/5 seeds        445 ns     SCB_MISMATCH 
+  fifo_test_write_when_full    5/5 seeds        475 ns     SCB_MISMATCH 
+  fifo_test_random             5/5 seeds        205 ns     SCB_MISMATCH 
+  => DETECTED
+

@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Synchronous FIFO Verification Report</title>
+<style>
+@page { size: A4; margin: 18mm 16mm 18mm 16mm;
+  @bottom-left  { content: "Synchronous FIFO Verification Report  |  Vũ Minh Quân"; font: 7.5pt "DejaVu Sans"; color: #6b7280; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 7.5pt "DejaVu Sans"; color: #6b7280; } }
+@page :first { @bottom-left { content: none; } @bottom-right { content: none; } }
+:root { --ink:#111827; --muted:#4b5563; --line:#d1d5db; --accent:#1e3a8a; --soft:#f3f4f6; --ok:#166534; --warn:#92400e; }
+body { font: 9.4pt/1.5 "DejaVu Sans", sans-serif; color: var(--ink); margin: 0; background: #fff; }
+h1 { font-size: 24pt; line-height: 1.15; margin: 0 0 3mm; color: var(--accent); }
+h2 { font-size: 13pt; color: var(--accent); border-bottom: 1.2px solid var(--accent); padding-bottom: 1mm;
+      margin: 8mm 0 3mm; break-after: avoid; }
+h3 { font-size: 10.5pt; margin: 5mm 0 2mm; break-after: avoid; }
+p { margin: 1.6mm 0 2.4mm; text-align: justify; }
+ul { margin: 1mm 0 2.5mm; padding-left: 6mm; } li { margin: .6mm 0; }
+table { width: 100%; border-collapse: collapse; margin: 2mm 0 3.5mm; font-size: 8.5pt; break-inside: avoid; }
+th { background: var(--soft); text-align: left; }
+th, td { border: 1px solid var(--line); padding: 1.3mm 2mm; vertical-align: top; }
+td.n, th.n { text-align: right; white-space: nowrap; }
+code { font-family: "DejaVu Sans Mono", monospace; font-size: 8.2pt; }
+.listing { margin: 2.5mm 0 4mm; border: 1px solid var(--line); }
+.listing.short { break-inside: avoid; }
+.lhead { display: flex; justify-content: space-between; background: var(--soft); padding: 1.2mm 2.5mm;
+          font-size: 8pt; font-weight: bold; border-bottom: 1px solid var(--line); break-after: avoid; }
+.lhead .src { font-weight: normal; color: var(--muted); font-family: "DejaVu Sans Mono", monospace; }
+pre { margin: 0; padding: 2mm 3mm; font: 7.4pt/1.38 "DejaVu Sans Mono", monospace; white-space: pre-wrap; }
+figure { margin: 2.5mm 0 4.5mm; break-inside: avoid; }
+figure img { width: 100%; border: 1px solid var(--line); }
+figure.half img { width: 62%; }
+figcaption { font-size: 8.2pt; color: var(--muted); margin-top: 1.2mm; }
+.cover { height: 245mm; display: flex; flex-direction: column; justify-content: space-between; }
+.cover .top { margin-top: 40mm; }
+.cover .sub { font-size: 12pt; color: var(--muted); margin-bottom: 14mm; }
+.cover table { width: 70%; font-size: 9.5pt; }
+.cover td:first-child { width: 32%; color: var(--muted); }
+.kpis { display: flex; gap: 3mm; margin: 3mm 0; }
+.kpi { flex: 1; border: 1px solid var(--line); padding: 2.5mm 3mm; }
+.kpi .v { font-size: 15pt; font-weight: bold; color: var(--accent); }
+.kpi .l { font-size: 7.8pt; color: var(--muted); }
+.box { border-left: 3px solid var(--warn); background: #fffbeb; padding: 2mm 3.5mm; margin: 2.5mm 0 3.5mm; break-inside: avoid; }
+.toc td { border: none; padding: .8mm 0; font-size: 9.5pt; }
+.toc td.n { color: var(--muted); }
+.pb { break-before: page; }
+</style></head><body>
+
+<section class="cover">
+ <div class="top">
+  <h1>Synchronous FIFO<br>Verification Report</h1>
+  <div class="sub">UVM testbench with reference-model scoreboard, functional coverage,<br>
+  SystemVerilog assertions and RTL bug injection</div>
+  <table>
+   <tr><td>Author</td><td>Vũ Minh Quân</td></tr>
+   <tr><td>Date</td><td>November 2026</td></tr>
+   <tr><td>Design</td><td><code>sync_fifo</code>, 8 bit &times; 32 entries</td></tr>
+   <tr><td>Language</td><td>SystemVerilog (IEEE 1800-2017), UVM 1.1d</td></tr>
+   <tr><td>Simulator</td><td>Questa Sim-64 2021.2</td></tr>
+  </table>
+ </div>
+ <table class="toc">
+  <tr><td>1. Summary</td></tr><tr><td>2. Design under test</td></tr>
+  <tr><td>3. Verification environment</td></tr><tr><td>4. Test plan and checks</td></tr>
+  <tr><td>5. Results</td></tr><tr><td>6. Waveforms: correct behaviour</td></tr>
+  <tr><td>7. Bug injection</td></tr><tr><td>8. Findings and limitations</td></tr>
+  <tr><td>9. How to reproduce</td></tr>
+ </table>
+</section>
+
+<h2 class="pb">1. Summary</h2>
+<div class="kpis">
+ <div class="kpi"><div class="v">20 / 20</div><div class="l">regression runs passed<br>4 tests &times; 5 seeds</div></div>
+ <div class="kpi"><div class="v">100%</div><div class="l">functional coverage<br>24 of 24 bins</div></div>
+ <div class="kpi"><div class="v">98.17%</div><div class="l">total coverage<br>code, functional, assertion</div></div>
+ <div class="kpi"><div class="v">5 / 5</div><div class="l">injected RTL bugs<br>detected</div></div>
+</div>
+<p>This report covers the verification of a parameterized synchronous FIFO. The testbench is a layered UVM environment:
+a driver and monitor connected through clocking blocks, a scoreboard that predicts every read with a queue model,
+a covergroup on the observed traffic, and ten concurrent assertions bound to the design.</p>
+<p>The regression runs four tests with five random seeds each. All 20 runs pass. The scoreboard checked
+4,556 reads against the model with 0 mismatches. Merged coverage is 100% functional and 98.17% in total;
+the two remaining code-coverage misses are explained in Section 5.</p>
+<p>A passing regression says little unless the same environment fails on a broken design. Five RTL bugs were
+therefore compiled in one at a time. All five were detected. Looking at which check caught each bug also showed three
+weaknesses in the environment itself. They are described in Section 8, together with the planned fixes.</p>
+
+<h2>2. Design under test</h2>
+<table>
+ <tr><th style="width:24%">Item</th><th>Description</th></tr>
+ <tr><td>Module</td><td><code>sync_fifo #(DATA_WIDTH = 8, DEPTH = 32)</code>, single clock domain</td></tr>
+ <tr><td>Ports</td><td><code>clk, rst_n, wr_en, rd_en, data_in[7:0]</code> &rarr; <code>data_out[7:0], full, empty</code></td></tr>
+ <tr><td>Storage</td><td>Register array <code>mem[0:31]</code>, 5-bit read and write pointers that wrap naturally</td></tr>
+ <tr><td>Flags</td><td>6-bit occupancy counter; <code>full = (count == DEPTH)</code>, <code>empty = (count == 0)</code>, both combinational</td></tr>
+ <tr><td>Overflow, underflow</td><td>A write while full and a read while empty are ignored. Pointers and count do not change</td></tr>
+ <tr><td>Read latency</td><td><code>data_out</code> is registered and changes on the clock edge that accepts the read</td></tr>
+ <tr><td>Reset</td><td>Synchronous, active low. Clears pointers, count and <code>data_out</code>; memory contents are not cleared</td></tr>
+</table>
+<div class="listing"><div class="lhead"><span>Listing 1. Design under test</span><span class="src">rtl/sync_fifo.sv</span></div><pre>module sync_fifo #(
+  parameter int DATA_WIDTH = 8,
+  parameter int DEPTH = 32
+)
+(
+  input logic clk,
+  input logic rst_n,
+  input logic wr_en,
+  input logic rd_en,
+  input logic [DATA_WIDTH-1:0] data_in,
+  output logic [DATA_WIDTH-1:0] data_out,
+  output logic full,
+  output logic empty
+);
+
+localparam PTR_WIDTH  = $clog2(DEPTH);
+
+logic [DATA_WIDTH-1:0] mem [0:DEPTH-1];
+
+logic [PTR_WIDTH-1:0] wr_ptr, rd_ptr;
+
+logic [PTR_WIDTH:0] count;
+
+assign empty = (count == 0);
+assign full = (count == DEPTH);
+
+always_ff @(posedge clk) begin
+  if (!rst_n) begin
+    wr_ptr &lt;= 0;
+  end else if (wr_en &amp;&amp; !full) begin
+    mem[wr_ptr] &lt;= data_in;
+    wr_ptr &lt;= wr_ptr + 1;
+  end
+end
+
+always_ff @(posedge clk) begin
+  if (!rst_n) begin
+    rd_ptr &lt;= 0;
+    data_out &lt;= 0;
+  end else if (rd_en &amp;&amp; !empty) begin
+    data_out &lt;= mem[rd_ptr];
+    rd_ptr &lt;= rd_ptr + 1;
+  end
+end
+
+always_ff @(posedge clk) begin
+  if (!rst_n) begin
+    count &lt;= 0;
+  end else begin
+    case ({wr_en &amp;&amp; !full, rd_en &amp;&amp; !empty})
+      2&#x27;b00: count &lt;= count;
+      2&#x27;b01: count &lt;= count - 1; //rd only
+      2&#x27;b10: count &lt;= count + 1; //wr only
+      2&#x27;b11: count &lt;= count; //wr + rd
+      default: count &lt;= count;
+    endcase
+  end
+end
+
+endmodule</pre></div>
+<p>The RTL also contains five bug switches used in Section 7. Each one is an <code>`ifdef</code> around a single
+line and is disabled unless the RTL is compiled with <code>+define+BUG_&lt;NAME&gt;</code>, so the default build is the
+design in Listing 1.</p>
+<div class="listing short"><div class="lhead"><span>Listing 2. Example bug switch (off by default)</span><span class="src">rtl/sync_fifo.sv</span></div><pre>`ifdef BUG_FULL_EARLY
+assign full = (count == DEPTH-1);
+`else
+assign full = (count == DEPTH);
+`endif</pre></div>
+
+<h2>3. Verification environment</h2>
+<figure><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 330" font-family="DejaVu Sans, sans-serif" font-size="12">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker></defs>
+  <rect x="5" y="5" width="730" height="320" rx="8" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="18" y="25" font-weight="bold" fill="#374151">uvm_test (fifo_base_test and 4 derived tests)</text>
+  <rect x="20" y="40" width="120" height="44" rx="6" fill="#fef3c7" stroke="#b45309"/>
+  <text x="80" y="60" text-anchor="middle">sequences</text><text x="80" y="76" text-anchor="middle" font-size="10" fill="#6b7280">reset/fill/drain/random</text>
+  <rect x="165" y="36" width="560" height="200" rx="8" fill="#f9fafb" stroke="#6b7280"/>
+  <text x="178" y="54" font-weight="bold" fill="#374151">fifo_env</text>
+  <rect x="180" y="64" width="300" height="160" rx="6" fill="#eff6ff" stroke="#1d4ed8"/>
+  <text x="192" y="81" font-weight="bold" fill="#1d4ed8">fifo_agent (UVM_ACTIVE)</text>
+  <rect x="195" y="92" width="120" height="38" rx="5" fill="#fff" stroke="#1d4ed8"/><text x="255" y="116" text-anchor="middle">sequencer</text>
+  <rect x="345" y="92" width="120" height="38" rx="5" fill="#fff" stroke="#1d4ed8"/><text x="405" y="116" text-anchor="middle">driver</text>
+  <rect x="195" y="170" width="120" height="38" rx="5" fill="#fff" stroke="#1d4ed8"/><text x="255" y="194" text-anchor="middle">monitor</text>
+  <rect x="540" y="64" width="170" height="60" rx="6" fill="#ecfdf5" stroke="#15803d"/>
+  <text x="625" y="88" text-anchor="middle" font-weight="bold">scoreboard</text><text x="625" y="105" text-anchor="middle" font-size="10" fill="#374151">queue reference model</text>
+  <rect x="540" y="150" width="170" height="60" rx="6" fill="#ecfdf5" stroke="#15803d"/>
+  <text x="625" y="174" text-anchor="middle" font-weight="bold">coverage</text><text x="625" y="191" text-anchor="middle" font-size="10" fill="#374151">fifo_cg: 8 points / crosses</text>
+  <line x1="140" y1="62" x2="193" y2="105" stroke="#374151" marker-end="url(#ar)"/>
+  <line x1="315" y1="111" x2="343" y2="111" stroke="#374151" marker-end="url(#ar)"/>
+  <path d="M315,189 L500,189 L500,100 L538,100" fill="none" stroke="#15803d" marker-end="url(#ar)"/>
+  <line x1="500" y1="180" x2="538" y2="180" stroke="#15803d" marker-end="url(#ar)"/>
+  <text x="330" y="183" font-size="10" fill="#15803d">analysis port</text>
+  <rect x="165" y="252" width="560" height="62" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
+  <text x="178" y="294" font-weight="bold" fill="#374151">tb_top</text>
+  <rect x="230" y="272" width="200" height="34" rx="5" fill="#fff" stroke="#374151"/><text x="330" y="294" text-anchor="middle">fifo_if (drv_cb / mon_cb)</text>
+  <rect x="460" y="272" width="110" height="34" rx="5" fill="#fff" stroke="#374151"/><text x="515" y="294" text-anchor="middle">sync_fifo (DUT)</text>
+  <rect x="600" y="272" width="110" height="34" rx="5" fill="#fdf2f8" stroke="#be185d"/><text x="655" y="294" text-anchor="middle">SVA (bind)</text>
+  <line x1="430" y1="289" x2="458" y2="289" stroke="#374151" marker-end="url(#ar)" marker-start="url(#ar)"/>
+  <line x1="600" y1="289" x2="572" y2="289" stroke="#be185d" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+  <line x1="405" y1="130" x2="405" y2="270" stroke="#374151" marker-end="url(#ar)"/><text x="411" y="245" font-size="10" fill="#374151">drv_cb</text>
+  <line x1="255" y1="272" x2="255" y2="210" stroke="#374151" marker-end="url(#ar)"/><text x="261" y="245" font-size="10" fill="#374151">mon_cb</text>
+  
+</svg><figcaption><b>Figure 1.</b> Testbench structure. Only the driver, the monitor and the bound
+assertion module touch signals; all other components exchange transactions.</figcaption></figure>
+<table>
+ <tr><th style="width:18%">Component</th><th>Implementation</th></tr>
+ <tr><td>Interface</td><td>Signals plus two clocking blocks. <code>drv_cb</code> drives inputs and <code>mon_cb</code> samples everything, both with 1 ns skew (Listing 3)</td></tr>
+ <tr><td>Sequence item</td><td>Random <code>wr_en</code>, <code>rd_en</code>, <code>data_in</code> with weighted constraints (Listing 7); DUT outputs are stored as non-random fields</td></tr>
+ <tr><td>Sequences</td><td>Reset (idle), fill (32 writes, data 0 to 31), drain (32 reads), write-when-full and a 2,000-item random stress sequence</td></tr>
+ <tr><td>Driver</td><td>Drives one item per clock and returns the sampled outputs (Listing 4). Applies the initial reset</td></tr>
+ <tr><td>Monitor</td><td>Samples the bus every clock through <code>mon_cb</code> and writes the item to an analysis port (Listing 5). It does not depend on the driver</td></tr>
+ <tr><td>Scoreboard</td><td>Queue reference model fed through a <code>uvm_tlm_analysis_fifo</code>. A read sets an expectation that is checked on the next item, which models the registered output (Listing 6)</td></tr>
+ <tr><td>Coverage</td><td><code>uvm_subscriber</code> with one covergroup: 5 coverpoints and 3 crosses (Listing 9)</td></tr>
+ <tr><td>Assertions</td><td>Module <code>fifo_assertions</code>, bound to <code>sync_fifo</code> so it can see <code>count</code> and both pointers (Listings 10, 11)</td></tr>
+</table>
+<div class="listing short"><div class="lhead"><span>Listing 3. Clocking blocks: 1 ns input/output skew</span><span class="src">tb/fifo_if.sv</span></div><pre>clocking drv_cb @(posedge clk);
+  default input #1ns output #1ns;
+
+  output wr_en;
+  output rd_en;
+  output data_in;
+
+  input  full;
+  input  empty;
+  input  data_out;
+endclocking : drv_cb
+
+clocking mon_cb @(posedge clk);
+  default input #1ns output #1ns;
+
+  input  rst_n;
+  input  wr_en;
+  input  rd_en;
+  input  data_in;
+  input  data_out;
+  input  full;
+  input  empty;
+endclocking : mon_cb</pre></div>
+<div class="listing short"><div class="lhead"><span>Listing 4. Driver: one item per clock</span><span class="src">tb/fifo_driver.sv</span></div><pre>virtual task drive_item(fifo_seq_item item);
+
+  vif.drv_cb.wr_en   &lt;= item.wr_en;
+  vif.drv_cb.rd_en   &lt;= item.rd_en;
+  vif.drv_cb.data_in &lt;= item.data_in;
+
+  @(vif.drv_cb);
+
+  item.data_out = vif.drv_cb.data_out;
+  item.full     = vif.drv_cb.full;
+  item.empty    = vif.drv_cb.empty;
+
+  vif.drv_cb.wr_en &lt;= 1&#x27;b0;
+  vif.drv_cb.rd_en &lt;= 1&#x27;b0;
+
+endtask : drive_item</pre></div>
+<div class="listing short"><div class="lhead"><span>Listing 5. Monitor: samples the bus every clock</span><span class="src">tb/fifo_monitor.sv</span></div><pre>forever begin
+  fifo_seq_item item;
+
+  @(vif.mon_cb);
+
+  item = fifo_seq_item::type_id::create(&quot;item&quot;);
+
+  item.wr_en    = vif.mon_cb.wr_en;
+  item.rd_en    = vif.mon_cb.rd_en;
+  item.data_in  = vif.mon_cb.data_in;
+  item.data_out = vif.mon_cb.data_out;
+  item.full     = vif.mon_cb.full;
+  item.empty    = vif.mon_cb.empty;
+
+  ap.write(item);
+
+end</pre></div>
+<div class="listing"><div class="lhead"><span>Listing 6. Scoreboard: reference queue with 1-cycle read latency</span><span class="src">tb/fifo_scoreboard.sv</span></div><pre>if (expect_read) begin
+  num_reads++;
+  if (item.data_out === expected_data) begin
+    num_matches++;
+  end else begin
+    num_mismatches++;
+    `uvm_error(get_type_name(),
+      $sformatf(&quot;[MISMATCH] Read #%0d failed: data_out=0x%02h != expected=0x%02h&quot;,
+                num_reads, item.data_out, expected_data))
+  end
+  expect_read = 1&#x27;b0;
+end
+
+if (item.wr_en &amp;&amp; (ref_count &lt; depth)) begin
+  ref_queue.push_back(item.data_in);
+  ref_count++;
+  num_writes++;
+end else if (item.wr_en &amp;&amp; (ref_count &gt;= depth)) begin
+end
+
+if (item.rd_en &amp;&amp; !item.empty) begin
+  if (ref_queue.size() &gt; 0) begin
+    expected_data = ref_queue.pop_front();
+    expect_read   = 1&#x27;b1;
+    ref_count--;
+  end else begin
+    `uvm_error(get_type_name(),
+      $sformatf(&quot;[UNDERFLOW ANOMALY] DUT !empty but scoreboard ref_queue is empty!&quot;))
+  end
+end</pre></div>
+
+<h2>4. Test plan and checks</h2>
+<p>The full plan, with the mapping from each feature to its test, coverage bin and assertion, is in
+<code>doc/FIFO_VERIFICATION_PLAN.md</code>. The implemented tests are:</p>
+<table>
+ <tr><th style="width:28%">Test</th><th>Stimulus</th><th style="width:30%">Purpose</th></tr>
+ <tr><td><code>fifo_test_reset</code></td><td>5 idle cycles after reset</td><td>Reset state, empty after reset</td></tr>
+ <tr><td><code>fifo_test_fill_drain</code></td><td>32 writes with data 0 to 31, then 32 reads</td><td>Capacity, flag transitions, ordering, pointer wrap</td></tr>
+ <tr><td><code>fifo_test_write_when_full</code></td><td>Fill, 3 writes of <code>0xFF</code> while full, then drain</td><td>Overflow protection, no data corruption</td></tr>
+ <tr><td><code>fifo_test_random</code></td><td>2,000 constrained-random cycles</td><td>Simultaneous read and write, empty and full corners, coverage</td></tr>
+</table>
+<div class="listing short"><div class="lhead"><span>Listing 7. Stimulus constraints</span><span class="src">tb/fifo_seq_item.sv</span></div><pre>constraint c_valid_op {
+  (wr_en || rd_en) dist {
+    1&#x27;b1 := 80,
+    1&#x27;b0 := 20
+  };
+}
+
+constraint c_wr_dist {
+  wr_en dist {
+    1&#x27;b1 := 60,
+    1&#x27;b0 := 40
+  };
+}
+
+constraint c_rd_dist {
+  rd_en dist {
+    1&#x27;b1 := 40,
+    1&#x27;b0 := 60
+  };
+}</pre></div>
+<div class="listing short"><div class="lhead"><span>Listing 8. Overflow step of fifo_write_when_full_sequence</span><span class="src">tb/fifo_sequence.sv</span></div><pre>for (int j = 0; j &lt; 3; j++) begin
+  req = fifo_seq_item::type_id::create(&quot;req&quot;);
+  start_item(req);
+  if (!req.randomize() with {
+    wr_en   == 1&#x27;b1;
+    rd_en   == 1&#x27;b0;
+    data_in == 8&#x27;hFF;
+  }) begin
+    `uvm_fatal(&quot;RND_FAIL&quot;, $sformatf(&quot;Randomization failed during Step 2 (overflow index %0d)!&quot;, j))
+  end
+  finish_item(req);
+end</pre></div>
+<h3>Assertions</h3>
+<table>
+ <tr><th style="width:30%">Assertion</th><th>Rule</th></tr>
+ <tr><td><code>A01_RESET_STATE</code></td><td>When reset is released: <code>empty</code> = 1 and <code>full</code> = 0</td></tr>
+ <tr><td><code>A02_FULL_IFF_DEPTH</code></td><td><code>full</code> is high exactly when <code>count == DEPTH</code></td></tr>
+ <tr><td><code>A03_EMPTY_IFF_ZERO</code></td><td><code>empty</code> is high exactly when <code>count == 0</code></td></tr>
+ <tr><td><code>A04_NO_WR_WHEN_FULL</code></td><td>A write while full does not move <code>wr_ptr</code></td></tr>
+ <tr><td><code>A05_NO_RD_WHEN_EMPTY</code></td><td>A read while empty does not move <code>rd_ptr</code></td></tr>
+ <tr><td><code>A06_COUNT_BOUNDS</code></td><td><code>count</code> never exceeds DEPTH</td></tr>
+ <tr><td><code>A07_FULL_EMPTY_MUTEX</code></td><td><code>full</code> and <code>empty</code> are never high together</td></tr>
+ <tr><td><code>A08</code>, <code>A09</code>, <code>A10</code></td><td><code>count</code> +1 on a write only, &minus;1 on a read only, unchanged on a read and write in the same cycle</td></tr>
+</table>
+<p>Five cover properties (<code>C01</code> to <code>C05</code>) record that full, empty, a simultaneous read and write,
+a write while full and a read while empty actually happened.</p>
+<div class="listing short"><div class="lhead"><span>Listing 10. Selected assertions (A02, A04, A05, A10)</span><span class="src">tb/fifo_assertions.sv</span></div><pre>property p_full_iff_depth;
+  @(posedge clk) disable iff (!rst_n)
+    full == (count == DEPTH);
+endproperty
+
+property p_no_wr_when_full;
+  @(posedge clk) disable iff (!rst_n)
+    (full &amp;&amp; wr_en) |=&gt; $stable(wr_ptr);
+endproperty
+
+property p_no_rd_when_empty;
+  @(posedge clk) disable iff (!rst_n)
+    (empty &amp;&amp; rd_en) |=&gt; $stable(rd_ptr);
+endproperty
+
+property p_count_stable_on_rw;
+  @(posedge clk) disable iff (!rst_n)
+    (wr_en &amp;&amp; !full &amp;&amp; rd_en &amp;&amp; !empty) |=&gt; $stable(count);
+endproperty</pre></div>
+<div class="listing short"><div class="lhead"><span>Listing 11. Assertions bound to the DUT</span><span class="src">tb/tb_top.sv</span></div><pre>bind sync_fifo fifo_assertions #(
+  .DATA_WIDTH (DATA_WIDTH),
+  .DEPTH      (DEPTH)
+) sva_inst (.*);</pre></div>
+<div class="listing"><div class="lhead"><span>Listing 9. Functional coverage</span><span class="src">tb/fifo_coverage.sv</span></div><pre>covergroup fifo_cg with function sample(fifo_seq_item item);
+  option.per_instance = 1;
+  option.name         = &quot;fifo_cg&quot;;
+  option.comment      = &quot;Functional coverage metrics for Synchronous FIFO&quot;;
+
+  cp_wr_en: coverpoint item.wr_en {
+    bins wr_deasserted = {1&#x27;b0};
+    bins wr_asserted   = {1&#x27;b1};
+  }
+
+  cp_rd_en: coverpoint item.rd_en {
+    bins rd_deasserted = {1&#x27;b0};
+    bins rd_asserted   = {1&#x27;b1};
+  }
+
+  cx_wr_rd: cross cp_wr_en, cp_rd_en;
+
+  cp_full: coverpoint item.full {
+    bins not_full = {1&#x27;b0};
+    bins is_full  = {1&#x27;b1};
+  }
+
+  cp_empty: coverpoint item.empty {
+    bins not_empty = {1&#x27;b0};
+    bins is_empty  = {1&#x27;b1};
+  }
+
+  cx_wr_full: cross cp_wr_en, cp_full;
+
+  cx_rd_empty: cross cp_rd_en, cp_empty;
+
+  cp_data_in: coverpoint item.data_in {
+    bins zero = {0};
+    bins low  = {[1:127]};
+    bins high = {[128:254]};
+    bins max  = {255};
+  }
+
+endgroup : fifo_cg</pre></div>
+
+<h2>5. Results</h2>
+<h3>5.1 Regression</h3>
+<p>A run passes only when UVM reports no errors or fatals, the simulator reports no <code>** Error</code>
+(this is how assertion failures appear, see Section 8), and the scoreboard prints PASS.</p>
+<figure class=""><img src="../results/img/T1_regression.png"><figcaption><b>Figure 2.</b> Regression output: 4 tests &times; 5 seeds, all passing.</figcaption></figure>
+<figure class=""><img src="../results/img/T3_random_clean_result.png"><figcaption><b>Figure 3.</b> Result of one random run (seed 1): 883 writes, 853 reads checked, 0 mismatches, no assertion failures.</figcaption></figure>
+
+<h3>5.2 Coverage</h3>
+<table>
+ <tr><th>Metric</th><th class="n">Bins</th><th class="n">Hit</th><th class="n">Coverage</th><th>Note</th></tr>
+ <tr><td>Functional (covergroup)</td><td class="n">24</td><td class="n">24</td><td class="n">100.00%</td><td>All coverpoints and crosses closed</td></tr>
+ <tr><td>Assertions</td><td class="n">10</td><td class="n">10</td><td class="n">100.00%</td><td>No failures</td></tr>
+ <tr><td>Cover directives</td><td class="n">5</td><td class="n">5</td><td class="n">100.00%</td><td></td></tr>
+ <tr><td>Statements</td><td class="n">18</td><td class="n">17</td><td class="n">94.44%</td><td rowspan="2">The <code>default:</code> item of the count <code>case</code>. The selector has 2 bits and all 4 values are listed, so it cannot be reached</td></tr>
+ <tr><td>Branches</td><td class="n">13</td><td class="n">12</td><td class="n">92.30%</td></tr>
+ <tr><td>Conditions, expressions</td><td class="n">6</td><td class="n">6</td><td class="n">100.00%</td><td></td></tr>
+ <tr><td>Toggles</td><td class="n">76</td><td class="n">75</td><td class="n">98.68%</td><td><code>rst_n</code> never falls after the first reset (no reset during traffic)</td></tr>
+ <tr><th>Total</th><th></th><th></th><th class="n">98.17%</th><th></th></tr>
+</table>
+<figure class="half"><img src="../results/img/T2_coverage_summary.png"><figcaption><b>Figure 4.</b> Merged coverage summary printed by the regression script.</figcaption></figure>
+<figure class=""><img src="../results/img/C1_coverage_overview.png"><figcaption><b>Figure 5.</b> Questa HTML coverage report, summary page.</figcaption></figure>
+<figure class=""><img src="../results/img/C2a_covergroup_bins.png"><figcaption><b>Figure 6.</b> Covergroup <code>fifo_cg</code>: all five coverpoints at 100%.</figcaption></figure>
+<figure class=""><img src="../results/img/C2b_covergroup_crosses.png"><figcaption><b>Figure 7.</b> Covergroup <code>fifo_cg</code>: the three crosses at 100%, including write while full and read while empty.</figcaption></figure>
+<figure class=""><img src="../results/img/C3_unreachable_default.png"><figcaption><b>Figure 8.</b> Branch coverage of the count <code>case</code>: every listed case is hit thousands of times; only the unreachable <code>default</code> has 0 hits.</figcaption></figure>
+
+<h2>6. Waveforms: correct behaviour</h2>
+<p>All waveforms were taken in the Questa GUI from the clean RTL. The signal list is grouped as clock, inputs,
+outputs and internal DUT signals.</p>
+<figure class=""><img src="../results/img/W1_fill_to_full.png"><figcaption><b>Figure 9.</b> Fill to full (<code>fifo_test_fill_drain</code>, seed 1). <code>count</code> reaches 32 at 375 ns and <code>full</code> rises in the same cycle. <code>wr_ptr</code> wraps from 31 to 0. Reads start on the next edge and <code>full</code> drops.</figcaption></figure>
+<figure class=""><img src="../results/img/W2_read_latency.png"><figcaption><b>Figure 10.</b> Drain phase of the same run. <code>data_out</code> returns 00 to 1F in the order written. <code>data_out</code> is registered, so it updates on the edge that accepts the read while <code>rd_ptr</code> already points to the next entry.</figcaption></figure>
+<figure class=""><img src="../results/img/W3_write_when_full_ignored.png"><figcaption><b>Figure 11.</b> Write while full (<code>fifo_test_write_when_full</code>, seed 1). After the last fill value <code>1F</code>, three writes of <code>FF</code> arrive while <code>full</code> = 1. <code>wr_ptr</code> stays at 0 and <code>count</code> stays at 32; assertion A04 reports no failure.</figcaption></figure>
+<figure class=""><img src="../results/img/W4_simultaneous_rw.png"><figcaption><b>Figure 12.</b> Random traffic (<code>fifo_test_random</code>, seed 1). Reads and writes overlap from the start. At 135 ns a read and a write in the same cycle advance both pointers while <code>count</code> stays at 3.</figcaption></figure>
+<figure class=""><img src="../results/img/W5_read_when_empty_ignored.png"><figcaption><b>Figure 13.</b> Random traffic, seed 2. At the cursor (93.7 ns) <code>rd_en</code> = 1 while <code>empty</code> = 1; <code>rd_ptr</code> stays at 1 and <code>count</code> stays at 0.</figcaption></figure>
+<figure class=""><img src="../results/img/W6_drain_to_empty.png"><figcaption><b>Figure 14.</b> End of the drain in <code>fifo_test_fill_drain</code>. The last value <code>1F</code> is read, <code>count</code> reaches 0 and <code>empty</code> rises.</figcaption></figure>
+
+<h2>7. Bug injection</h2>
+<p>Five bugs were added behind <code>`ifdef</code> switches. Each was compiled alone and all four tests were run with the
+same five seeds as the regression: 20 runs per bug, 100 in total.</p>
+<table>
+ <tr><th style="width:21%">Bug</th><th>Faulty behaviour</th><th style="width:26%">Failing runs</th><th style="width:20%">Checks that fired</th><th class="n">First error</th></tr>
+ <tr><td><code>BUG_FULL_EARLY</code></td><td><code>full</code> asserts at 31 entries</td><td>fill_drain 5/5, write_when_full 5/5, random 5/5</td><td>A02; scoreboard in random only</td><td class="n">375 ns</td></tr>
+ <tr><td><code>BUG_WRITE_WHEN_FULL</code></td><td>Write accepted while full</td><td>write_when_full 5/5, random 5/5</td><td>A04, scoreboard</td><td class="n">395 ns</td></tr>
+ <tr><td><code>BUG_READ_WHEN_EMPTY</code></td><td>Read accepted while empty</td><td>random 3/5</td><td>A05, scoreboard</td><td class="n">75 ns</td></tr>
+ <tr><td><code>BUG_COUNT_RW</code></td><td><code>count</code> +1 on read and write in one cycle</td><td>random 5/5</td><td>A10, scoreboard</td><td class="n">125 ns</td></tr>
+ <tr><td><code>BUG_DATA_BITFLIP</code></td><td>Bit 0 of <code>data_out</code> flips for entry 5</td><td>fill_drain 5/5, write_when_full 5/5, random 5/5</td><td>Scoreboard only</td><td class="n">205 ns</td></tr>
+</table>
+<p>All five bugs were detected. The assertions catch the control bugs in the cycle where they happen but cannot see
+data values. The data corruption in <code>BUG_DATA_BITFLIP</code> is found only by the scoreboard.
+<code>fifo_test_reset</code> detects none of the bugs, which is expected because it performs no reads or writes.</p>
+<figure class=""><img src="../results/img/T4_bug_report.png"><figcaption><b>Figure 15.</b> Bug campaign report produced by <code>make bugs</code>.</figcaption></figure>
+<figure class=""><img src="../results/img/B1_full_early.png"><figcaption><b>Figure 16.</b> <code>BUG_FULL_EARLY</code>: <code>full</code> rises while <code>count</code> = 31. Assertion A02 fails (red markers).</figcaption></figure>
+<figure class=""><img src="../results/img/B2_write_when_full.png"><figcaption><b>Figure 17.</b> <code>BUG_WRITE_WHEN_FULL</code>: <code>wr_ptr</code> keeps moving (0, 1, 2, 3) during the <code>FF</code> writes while <code>full</code> = 1. A04 fails; the drain then reads overwritten data.</figcaption></figure>
+<figure class=""><img src="../results/img/B3_read_when_empty.png"><figcaption><b>Figure 18.</b> <code>BUG_READ_WHEN_EMPTY</code> (random, seed 2): <code>rd_ptr</code> advances while <code>empty</code> = 1 and <code>data_out</code> becomes unknown. A05 fails at 75 ns.</figcaption></figure>
+<figure class=""><img src="../results/img/B4_count_rw.png"><figcaption><b>Figure 19.</b> <code>BUG_COUNT_RW</code> (random, seed 1): on a read and write in the same cycle <code>count</code> increments (7 to 8 at 315 ns). A10 fails on every such cycle.</figcaption></figure>
+<figure class=""><img src="../results/img/B5_data_bitflip.png"><figcaption><b>Figure 20.</b> <code>BUG_DATA_BITFLIP</code>: the read of entry 5 returns <code>04</code> instead of <code>05</code>, so the sequence skips from 04 to 06. Flags and pointers are correct and no assertion fires; the scoreboard reports one mismatch and fails the test.</figcaption></figure>
+
+<h2>8. Findings and limitations</h2>
+<p>The bug campaign also tested the environment. Three weaknesses were found. They are reported as open items and
+are tracked in the verification plan.</p>
+<div class="box"><b>F1. The scoreboard can pass while data is lost.</b> With <code>BUG_FULL_EARLY</code>,
+<code>fifo_test_fill_drain</code> writes 32 items but the design keeps only 31. The scoreboard reports 0 mismatches and
+prints PASS, with one item left in its queue (Figure 21). Only assertion A02 detects the bug. The scoreboard
+decides whether a read took place from the DUT's own <code>empty</code> flag, does not compare the flags with its model,
+and does not check for leftover items at the end of the test. Planned fix: predict <code>full</code> and <code>empty</code>
+from the model, compare them every cycle, and check the queue in <code>check_phase</code>.</div>
+<figure class=""><img src="../results/img/T5_finding_scoreboard_passes.png"><figcaption><b>Figure 21.</b> <code>UVM_ERROR : 0</code> and <code>SCOREBOARD CHECK PASSED</code>, but one item is left in the queue and A02 failed twice.</figcaption></figure>
+<div class="box"><b>F2. Assertion failures are not counted by UVM.</b> The assertions report with <code>$error</code>, so a
+run with failing assertions can still end with <code>UVM_ERROR : 0</code>. The regression scripts work around this by also
+failing a run on any simulator <code>** Error</code>. Planned fix: report assertion failures with <code>`uvm_error</code>.</div>
+<div class="box"><b>F3. Read while empty is reached only by chance.</b> No directed test reads from an empty FIFO.
+<code>BUG_READ_WHEN_EMPTY</code> was caught by the random test in 3 of 5 seeds, and with seed 1 the cover property for
+this case was never hit. Planned fix: add <code>fifo_test_read_when_empty</code>.</div>
+<h3>Limitations</h3>
+<ul>
+ <li>No reset during traffic. The scoreboard does not clear its model on reset.</li>
+ <li>Only one configuration is simulated (<code>DATA_WIDTH = 8</code>, <code>DEPTH = 32</code>). The pointer wrap relies on DEPTH being a power of two.</li>
+ <li>The unreachable <code>default:</code> branch is still counted as a miss; it should be excluded with a written reason.</li>
+ <li>Occupancy-level and flag-transition coverpoints from the plan are not implemented yet.</li>
+</ul>
+
+<h2>9. How to reproduce</h2>
+<pre style="border:1px solid var(--line); break-inside: avoid">cd 00_uvm_fifo/tb
+make questa_sim TESTNAME=fifo_test_random        # one test, batch mode
+make result TESTNAME=fifo_test_random SEED=3     # one run with log, verdict, coverage and waveform
+make regress                                     # 4 tests x 5 seeds, merged coverage
+make bugs                                        # 5 bugs x 4 tests x 5 seeds
+make gui TESTNAME=fifo_test_fill_drain SEED=1 BUG=BUG_FULL_EARLY   # open one run in the GUI</pre>
+</body></html>

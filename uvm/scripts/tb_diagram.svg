@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 330" font-family="DejaVu Sans, sans-serif" font-size="12">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker></defs>
+  <rect x="5" y="5" width="730" height="320" rx="8" fill="#ffffff" stroke="#9ca3af"/>
+  <text x="18" y="25" font-weight="bold" fill="#374151">uvm_test (fifo_base_test and 4 derived tests)</text>
+  <rect x="20" y="40" width="120" height="44" rx="6" fill="#fef3c7" stroke="#b45309"/>
+  <text x="80" y="60" text-anchor="middle">sequences</text><text x="80" y="76" text-anchor="middle" font-size="10" fill="#6b7280">reset/fill/drain/random</text>
+  <rect x="165" y="36" width="560" height="200" rx="8" fill="#f9fafb" stroke="#6b7280"/>
+  <text x="178" y="54" font-weight="bold" fill="#374151">fifo_env</text>
+  <rect x="180" y="64" width="300" height="160" rx="6" fill="#eff6ff" stroke="#1d4ed8"/>
+  <text x="192" y="81" font-weight="bold" fill="#1d4ed8">fifo_agent (UVM_ACTIVE)</text>
+  <rect x="195" y="92" width="120" height="38" rx="5" fill="#fff" stroke="#1d4ed8"/><text x="255" y="116" text-anchor="middle">sequencer</text>
+  <rect x="345" y="92" width="120" height="38" rx="5" fill="#fff" stroke="#1d4ed8"/><text x="405" y="116" text-anchor="middle">driver</text>
+  <rect x="195" y="170" width="120" height="38" rx="5" fill="#fff" stroke="#1d4ed8"/><text x="255" y="194" text-anchor="middle">monitor</text>
+  <rect x="540" y="64" width="170" height="60" rx="6" fill="#ecfdf5" stroke="#15803d"/>
+  <text x="625" y="88" text-anchor="middle" font-weight="bold">scoreboard</text><text x="625" y="105" text-anchor="middle" font-size="10" fill="#374151">queue reference model</text>
+  <rect x="540" y="150" width="170" height="60" rx="6" fill="#ecfdf5" stroke="#15803d"/>
+  <text x="625" y="174" text-anchor="middle" font-weight="bold">coverage</text><text x="625" y="191" text-anchor="middle" font-size="10" fill="#374151">fifo_cg: 8 points / crosses</text>
+  <line x1="140" y1="62" x2="193" y2="105" stroke="#374151" marker-end="url(#ar)"/>
+  <line x1="315" y1="111" x2="343" y2="111" stroke="#374151" marker-end="url(#ar)"/>
+  <path d="M315,189 L500,189 L500,100 L538,100" fill="none" stroke="#15803d" marker-end="url(#ar)"/>
+  <line x1="500" y1="180" x2="538" y2="180" stroke="#15803d" marker-end="url(#ar)"/>
+  <text x="330" y="183" font-size="10" fill="#15803d">analysis port</text>
+  <rect x="165" y="252" width="560" height="62" rx="8" fill="#f3f4f6" stroke="#6b7280"/>
+  <text x="178" y="294" font-weight="bold" fill="#374151">tb_top</text>
+  <rect x="230" y="272" width="200" height="34" rx="5" fill="#fff" stroke="#374151"/><text x="330" y="294" text-anchor="middle">fifo_if (drv_cb / mon_cb)</text>
+  <rect x="460" y="272" width="110" height="34" rx="5" fill="#fff" stroke="#374151"/><text x="515" y="294" text-anchor="middle">sync_fifo (DUT)</text>
+  <rect x="600" y="272" width="110" height="34" rx="5" fill="#fdf2f8" stroke="#be185d"/><text x="655" y="294" text-anchor="middle">SVA (bind)</text>
+  <line x1="430" y1="289" x2="458" y2="289" stroke="#374151" marker-end="url(#ar)" marker-start="url(#ar)"/>
+  <line x1="600" y1="289" x2="572" y2="289" stroke="#be185d" stroke-dasharray="3 2" marker-end="url(#ar)"/>
+  <line x1="405" y1="130" x2="405" y2="270" stroke="#374151" marker-end="url(#ar)"/><text x="411" y="245" font-size="10" fill="#374151">drv_cb</text>
+  <line x1="255" y1="272" x2="255" y2="210" stroke="#374151" marker-end="url(#ar)"/><text x="261" y="245" font-size="10" fill="#374151">mon_cb</text>
+  
+</svg>
