@@ -10,6 +10,8 @@
 
 | Date | Change |
 |---|---|
+| 2026-11-16 | Handwritten UVM testbench (`tb_top`, `fifo_assertions`, 4 tests) merged with the RL loop; FIFO plan v1.1 + results in `uvm/doc/`. ISSUE-008 resolved for `tb_top`; ISSUE-009 added (scoreboard flag/hold checks). |
+| 2026-10-26 | Updated §1 study status after PR #1 merge. ISSUE-001/002 marked resolved; added ISSUE-008 (SVA not bound). |
 | 2026-10-24 | Added daily-log entry "RL loop infrastructure validated on Windows / Questa 2024.1" (pseudo-target RB-01; not a research result). |
 | 2026-09-25 | Scope renamed from FIFO-only to multi-DUT study. Added daily-log entry for the advisor review. Filled decision register DEC-001…DEC-013 and issue register ISSUE-001…ISSUE-007. Added sections H (pre-registration record), I (knowledge-exposure log) and J (advisor review record). Updated the experiment registry and work packages. Templates kept unchanged. |
 | — | Initial template (FIFO baseline). |
@@ -39,10 +41,17 @@
 | Work package | Owner | Status | Due date | Evidence / link |
 |---|---|---|---|---|
 | Clean FIFO RTL | | Done | | `sync_fifo_clean.sv` |
-| `fifo_if.sv` compiles cleanly | Blue | Blocked (ISSUE-001, ISSUE-002) | | |
-| FIFO spec decisions + reference model rules | Blue | In progress (ISSUE-003) | | FIFO plan v1.1 |
-| FIFO pre-registration G0 (coverage, rare-bins, detectors, knobs) | Blue | Not started | | §H |
-| UVM skeleton (M3) | Blue | Not started | | |
+| `fifo_if.sv` compiles cleanly | Blue | Done (ISSUE-001, ISSUE-002 fixed in code; checked 2026-10-26) | | `uvm/fifo_uvm/fifo_if.sv` |
+| UVM skeleton (M3): agent, scoreboard, coverage, random test | Blue | Done; 0 mismatches (2026-10-24) | | §A 2026-10-24 |
+| RL loop infrastructure (knobs, knob seq, bandit, RL observer, CSV logger) | Blue | Done; loop check on RB-01 only (PR #1, `2a4f920`) | | §A 2026-10-24 |
+| SVA fixes (ISSUE-008) | Blue | Done for `tb_top` (`fifo_assertions.sv` A01–A10 bound, 0 failures in 20 runs); RL top `fifo_top` still has no SVA | | `uvm/doc/FIFO_VERIFICATION_PLAN.md` §5, §9 |
+| Handwritten UVM regression + bug injection | Blue | Done 2026-11-05: 20/20 PASS, functional cov 100 %, 5/5 bugs detected; open items O1–O7 | | `uvm/doc/results/`, `uvm/doc/report/` |
+| End-of-test objection issue (total 1999 instead of 2000) | Blue | Open | | §A 2026-10-24 |
+| RB-01 follow-ups: ε-greedy/binary run; per-seed hit counts + hit-test statistic in `rl_summary.py` | Blue | Open | | §A 2026-10-24 |
+| FIFO spec decisions + reference model rules | Blue | In progress (ISSUE-003) | | FIFO plan v1.1 (deleted from `main`; in history at `89ae1f3`) |
+| FIFO pre-registration G0 (coverage, rare-bins, detectors, knobs, UCB1 c / ε, B, N) | Blue | Not started (next priority) | | §H |
+| Assign blue / red owners | Team | Open | | DEC-008 |
+| Advisor confirmation of DEC-003…DEC-013 | Team | Open | | §C1 |
 | Tier-A screening S1–S7 | Red | Not started | | Protocol §5.1 |
 | Tier-B generator (DTjRTL or in-house) | Red | Not started | | |
 | Rarity calibration | Red | Not started | | Protocol §6 |
@@ -314,8 +323,10 @@ Status: **accepted** = required by advisor or already agreed; **proposed** = awa
 
 | ID | Date | Severity | Category | Summary | Resolution |
 |---|---|---|---|---|---|
-| ISSUE-001 | 2026-09-19 | Blocker | UVM | `fifo_if.sv`: `endclocking: mon_cb_cb` does not match block name `mon_cb`; compile error | Open |
-| ISSUE-002 | 2026-09-19 | High | UVM | `fifo_if.sv`: `mon_cb` lacks `rst_n`, so the monitor/scoreboard cannot see reset; `rst_n` driven outside the clocking block (race risk) | Open |
+| ISSUE-001 | 2026-09-19 | Blocker | UVM | `fifo_if.sv`: `endclocking: mon_cb_cb` does not match block name `mon_cb`; compile error | Resolved (2026-10-26: `endclocking: mon_cb` in `2a4f920`) |
+| ISSUE-002 | 2026-09-19 | High | UVM | `fifo_if.sv`: `mon_cb` lacks `rst_n`, so the monitor/scoreboard cannot see reset; `rst_n` driven outside the clocking block (race risk) | Resolved (2026-10-26: `rst_n` in `mon_cb` and `drv_cb` in `2a4f920`) |
+| ISSUE-008 | 2026-10-26 | High | Assertion | `fifo_sva.sv` is not bound in `fifo_top.sv`, so no assertion runs; line 43 `error(` should be `$error(`; line 60 `full \|=> $stable(wr_ptr) \|\| !full` can pass vacuously (see ISSUE-004) | Resolved for `tb_top` (2026-11-16): `fifo_assertions.sv` bound via `bind sync_fifo`; `fifo_sva.sv` kept but superseded. `fifo_top` (RL) still unbound |
+| ISSUE-009 | 2026-11-16 | Medium | Scoreboard | The handwritten scoreboard checks data only: no `full`/`empty` check, no `data_out` hold check, no leftover-item check (plan O1). RL CSV columns `det_sb_flag`/`det_sb_hold` are written as `NA` until these checks exist | Open |
 | ISSUE-003 | 2026-09-25 | High | Scoreboard | FIFO plan R5 says "process write before read"; wrong if the scoreboard does not gate by flags (empty + both enables → RTL writes only). Rule must gate by sampled `full`/`empty` | Fixed in FIFO plan v1.1 §3.8 |
 | ISSUE-004 | 2026-09-25 | Medium | Assertion | A04/A05 consequents `$stable(ptr) \|\| !flag` can pass vacuously when a read clears the flag; use `full \|=> $stable(wr_ptr)` and `empty \|=> $stable(rd_ptr)` | Fixed in FIFO plan v1.1 §5 |
 | ISSUE-007 | 2026-09-25 | Medium | Assertion | A01 `$rose(rst_n) \|=> (empty && !full)` fails falsely if a write occurs in the reset-release cycle; use `\|->` | Fixed in FIFO plan v1.1 §5 |
