@@ -13,10 +13,10 @@
 #   Batch : vsim -c -do run.do
 #   GUI   : vsim -do run.do
 #   Đổi test/seed:
-#     vsim -c -do "set TEST fifo_random_test; set SEED 7; do run.do"
+#     vsim -c -do "set TEST fifo_test_random; set SEED 7; do run.do"
 # Trong cửa sổ Questa đang mở: File > Change Directory... tới thư mục repo, rồi gõ: do run.do
 
-if {![info exists TEST]}      {set TEST fifo_random_test}
+if {![info exists TEST]}      {set TEST fifo_test_random}
 if {![info exists SEED]}      {set SEED 1}
 if {![info exists VERBOSITY]} {set VERBOSITY UVM_MEDIUM}
 

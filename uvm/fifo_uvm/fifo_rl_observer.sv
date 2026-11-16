@@ -1,5 +1,6 @@
 // =============================================================================
 // LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
+// 2026-11-16: Bỏ qua mẫu trước lần đầu rst_n = 1 (monitor mới lấy mẫu từ t=0).
 // 2026-10-13: Tạo mới. Subscriber theo dõi từng test cho vòng lặp RL:
 //             mô hình chiếm chỗ theo spec, 45 bin spec-derived (đếm bin mới
 //             theo test), bộ phát hiện RB-01 (>=3 chu kỳ liên tiếp wr_en=1 khi
@@ -39,6 +40,7 @@ class fifo_rl_observer extends uvm_subscriber #(fifo_seq_item);
   localparam int RB01_LEN = 3;
 
   // trạng thái toàn mô phỏng
+  bit          seen_active;   // đã thấy rst_n = 1 lần đầu (bỏ qua reset ban đầu của driver)
   bit          hit_ever[NUM_BINS];
   int unsigned occ;
   int unsigned wfull_run;
@@ -108,6 +110,13 @@ class fifo_rl_observer extends uvm_subscriber #(fifo_seq_item);
   virtual function void write(fifo_seq_item t);
     int  op, rb;
     bit  wr_acc, rd_acc;
+
+    // Monitor lấy mẫu từ thời điểm 0: bỏ qua các mẫu của reset ban đầu
+    // (trước lần đầu rst_n = 1), giống monitor cũ chờ rst_n === 1.
+    if (!seen_active) begin
+      if (!t.rst_n) return;
+      seen_active = 1;
+    end
 
     if (in_test) t_cycles++;
 

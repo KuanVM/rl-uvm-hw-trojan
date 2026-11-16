@@ -28,7 +28,7 @@ VLOG_OPTS = -sv +acc -timescale 1ns/1ps +incdir+$(UVM_DIR)
 VSIM_OPTS = -c -do "run -all; quit -f"
 
 # -- Default test --
-TEST      ?= fifo_random_test
+TEST      ?= fifo_test_random
 SEED      ?= 1
 VERBOSITY ?= UVM_MEDIUM
 PLUSARGS  ?=
@@ -67,7 +67,7 @@ wave: compile
 	  work.$(TOP)
 
 # quick smoke test
-smoke: TEST = fifo_random_test
+smoke: TEST = fifo_test_random
 smoke: sim
 
 # RL loop: B test trong MỘT lần mô phỏng, một seed

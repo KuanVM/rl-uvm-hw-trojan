@@ -1,80 +1,158 @@
-// =============================================================================
-// LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
-// 2026-10-13: fifo_base_test lấy vif từ config_db và có task drain(): chạy
-//             fifo_idle_seq rồi chờ vài chu kỳ cho monitor/scoreboard xử lý xong.
-//             fifo_random_test gọi drain() trước khi hạ objection, không còn mất
-//             giao dịch cuối (vấn đề 3).
-// =============================================================================
-// =============================================
-//          Base Test- for all setups
-// =============================================
+// fifo_test: base test and the four regression tests.
 
 class fifo_base_test extends uvm_test;
+
   `uvm_component_utils(fifo_base_test)
+
   fifo_env env;
-  virtual fifo_if vif;
 
   function new(string name = "fifo_base_test", uvm_component parent = null);
     super.new(name, parent);
-  endfunction
+  endfunction : new
 
-  // build phase - create environment
   virtual function void build_phase(uvm_phase phase);
     super.build_phase(phase);
+    `uvm_info(get_type_name(), "Executing build_phase: creating fifo_env...", UVM_HIGH)
     env = fifo_env::type_id::create("env", this);
-    if (!uvm_config_db #(virtual fifo_if)::get(this, "", "vif", vif))
-      `uvm_fatal("NOVIF", "Virtual interface not found in config_db")
-  
-    // config via config_db
-    uvm_config_db#(int)::set(this, "env.agent", "num_transactions", 1000);
-  endfunction
+  endfunction : build_phase
 
-  // Kết thúc sạch: N chu kỳ idle (driver không giữ wr/rd của item cuối),
-  // rồi chờ thêm wait_cycles để monitor lấy mẫu và scoreboard so xong.
-  virtual task drain(int unsigned idle_cycles = 2, int unsigned wait_cycles = 2);
-    fifo_idle_seq idle = fifo_idle_seq::type_id::create("idle");
-    idle.num_transaction = idle_cycles;
-    idle.start(env.agent.sequencer);
-    repeat (wait_cycles) @(posedge vif.clk);
-  endtask
+  virtual function void end_of_elaboration_phase(uvm_phase phase);
+    super.end_of_elaboration_phase(phase);
+    `uvm_info(get_type_name(), "Testbench Topology:", UVM_LOW)
+    uvm_top.print_topology();
+  endfunction : end_of_elaboration_phase
 
-  virtual function void report_phase(uvm_phase phase);
-    uvm_report_server svr;
-    super.report_phase(phase);
-    svr = uvm_report_server::get_server();
-    if (svr.get_severity_count(UVM_ERROR) + svr.get_severity_count(UVM_FATAL) > 0) begin
-      `uvm_info(get_type_name(), "═══ TEST FAILED ═══", UVM_NONE)
-    end else begin
-      `uvm_info(get_type_name(), "═══ TEST PASSED ═══", UVM_NONE)
-    end
-  endfunction
-endclass
-
-
-//==========================================
-//              Specific tests
-//========================================
-
-class fifo_random_test extends fifo_base_test;
-  `uvm_component_utils(fifo_random_test)
-
-  function new(string name = "fifo_random_test", uvm_component parent = null);
-    super.new(name, parent);
-  endfunction
-
-  // run phase - start the sequence
   virtual task run_phase(uvm_phase phase);
     fifo_base_sequence seq;
-    phase.raise_objection(this, "Starting test sequence");
 
-    // raise objection to keep sim running
+    super.run_phase(phase);
+
+    `uvm_info(get_type_name(), "Starting run_phase...", UVM_LOW)
+    phase.raise_objection(this, "Starting fifo_base_sequence in fifo_base_test");
+
+    // Drain time lets the last read reach the scoreboard
+    phase.phase_done.set_drain_time(this, 50ns);
+
     seq = fifo_base_sequence::type_id::create("seq");
-    seq.num_transaction = 2000;
-    seq.start(env.agent.sequencer);
-    drain();   // idle + chờ monitor/scoreboard, không mất giao dịch cuối
+    `uvm_info(get_type_name(), "Executing default sequence on env.agt.sqr...", UVM_MEDIUM)
+    seq.start(env.agt.sqr);
 
-    // drop objection when sequence is done
-    phase.drop_objection(this, "Test sequence complete");
-  endtask
-     
-endclass
+    `uvm_info(get_type_name(), "Sequence finished. Dropping objection...", UVM_LOW)
+    phase.drop_objection(this, "Completed fifo_base_sequence in fifo_base_test");
+  endtask : run_phase
+
+endclass : fifo_base_test
+
+// Reset sequence only.
+
+class fifo_test_reset extends fifo_base_test;
+
+  `uvm_component_utils(fifo_test_reset)
+
+  function new(string name = "fifo_test_reset", uvm_component parent = null);
+    super.new(name, parent);
+  endfunction : new
+
+  virtual task run_phase(uvm_phase phase);
+    fifo_reset_sequence seq;
+
+    `uvm_info(get_type_name(), "Starting run_phase: executing fifo_reset_sequence...", UVM_LOW)
+    phase.raise_objection(this, "Starting fifo_reset_sequence");
+
+    phase.phase_done.set_drain_time(this, 50ns);
+
+    seq = fifo_reset_sequence::type_id::create("seq");
+    seq.start(env.agt.sqr);
+
+    `uvm_info(get_type_name(), "Reset sequence completed. Dropping objection...", UVM_LOW)
+    phase.drop_objection(this, "Completed fifo_reset_sequence");
+  endtask : run_phase
+
+endclass : fifo_test_reset
+
+// Fill to full, then drain to empty.
+
+class fifo_test_fill_drain extends fifo_base_test;
+
+  `uvm_component_utils(fifo_test_fill_drain)
+
+  function new(string name = "fifo_test_fill_drain", uvm_component parent = null);
+    super.new(name, parent);
+  endfunction : new
+
+  virtual task run_phase(uvm_phase phase);
+    fifo_fill_sequence  fill_seq;
+    fifo_drain_sequence drain_seq;
+
+    `uvm_info(get_type_name(), "Starting run_phase: executing fill followed by drain sequence...", UVM_LOW)
+    phase.raise_objection(this, "Starting fifo_test_fill_drain");
+
+    phase.phase_done.set_drain_time(this, 50ns);
+
+    `uvm_info(get_type_name(), "Executing fifo_fill_sequence...", UVM_MEDIUM)
+    fill_seq = fifo_fill_sequence::type_id::create("fill_seq");
+    fill_seq.start(env.agt.sqr);
+
+    `uvm_info(get_type_name(), "Executing fifo_drain_sequence...", UVM_MEDIUM)
+    drain_seq = fifo_drain_sequence::type_id::create("drain_seq");
+    drain_seq.start(env.agt.sqr);
+
+    `uvm_info(get_type_name(), "Fill and drain sequences completed. Dropping objection...", UVM_LOW)
+    phase.drop_objection(this, "Completed fifo_test_fill_drain");
+  endtask : run_phase
+
+endclass : fifo_test_fill_drain
+
+// Writes while full must not corrupt stored data.
+
+class fifo_test_write_when_full extends fifo_base_test;
+
+  `uvm_component_utils(fifo_test_write_when_full)
+
+  function new(string name = "fifo_test_write_when_full", uvm_component parent = null);
+    super.new(name, parent);
+  endfunction : new
+
+  virtual task run_phase(uvm_phase phase);
+    fifo_write_when_full_sequence seq;
+
+    `uvm_info(get_type_name(), "Starting run_phase: executing fifo_write_when_full_sequence...", UVM_LOW)
+    phase.raise_objection(this, "Starting fifo_write_when_full_sequence");
+
+    phase.phase_done.set_drain_time(this, 50ns);
+
+    seq = fifo_write_when_full_sequence::type_id::create("seq");
+    seq.start(env.agt.sqr);
+
+    `uvm_info(get_type_name(), "Write-when-full sequence completed. Dropping objection...", UVM_LOW)
+    phase.drop_objection(this, "Completed fifo_write_when_full_sequence");
+  endtask : run_phase
+
+endclass : fifo_test_write_when_full
+
+// 2000 random items.
+
+class fifo_test_random extends fifo_base_test;
+
+  `uvm_component_utils(fifo_test_random)
+
+  function new(string name = "fifo_test_random", uvm_component parent = null);
+    super.new(name, parent);
+  endfunction : new
+
+  virtual task run_phase(uvm_phase phase);
+    fifo_random_stress_sequence seq;
+
+    `uvm_info(get_type_name(), "Starting run_phase: executing 2000-item random stress sequence...", UVM_LOW)
+    phase.raise_objection(this, "Starting fifo_random_stress_sequence");
+
+    phase.phase_done.set_drain_time(this, 50ns);
+
+    seq = fifo_random_stress_sequence::type_id::create("seq");
+    seq.start(env.agt.sqr);
+
+    `uvm_info(get_type_name(), "Random stress sequence completed. Dropping objection...", UVM_LOW)
+    phase.drop_objection(this, "Completed fifo_random_stress_sequence");
+  endtask : run_phase
+
+endclass : fifo_test_random
