@@ -1,121 +1,97 @@
-// =============================================================================
-// LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
-// 2026-10-13: Thêm trường kích thích rst_req (không rand, mặc định 0) để
-//             sequence chèn reset giữa chừng (k_reset, reset đầu test);
-//             cập nhật do_copy, do_print, convert2string. Ràng buộc mặc định
-//             giữ nguyên nên luồng ngẫu nhiên của fifo_random_test không đổi.
-// =============================================================================
+// fifo_seq_item: one clock of stimulus (wr_en, rd_en, data_in) and the sampled outputs.
+
 class fifo_seq_item extends uvm_sequence_item;
 
+  // Stimulus
 
-  // random stimulus fieldz
-  rand bit wr_en;
-  rand bit rd_en;
-  rand bit [7:0] data_in;
+  rand bit       wr_en;    // Write enable command (1: push into FIFO)
+  rand bit       rd_en;    // Read enable command  (1: pop from FIFO)
+  rand bit [7:0] data_in;  // 8-bit data payload to write
 
-  // stimulus khong rand: 1 = driver keo rst_n xuong trong chu ky nay
-  bit rst_req = 1'b0;
+  // Reset control, used by the RL knob sequence (fifo_knob_seq). Not randomized;
+  // the directed and random tests leave rst_req = 0.
+  bit       rst_req = 1'b0; // 1: driver holds rst_n low for this cycle (no read/write)
+  bit       rst_n;          // rst_n as sampled by the monitor
 
-  // observation fieldz
-  bit rst_n;
-  bit [7:0] data_out;
-  bit full;
-  bit empty;
+  bit [7:0] data_out;     // 8-bit data payload read from FIFO
+  bit       full;          // FIFO full status indicator
+  bit       empty;         // FIFO empty status indicator
 
-  // UVM: register with the original factory
-  // case 1: Not manually write do_copy(), do_compare(), do_print()
-  // not recommend bec sim's perf will largely be nerfed when scaled up
-  /*
   `uvm_object_utils_begin(fifo_seq_item)
     `uvm_field_int(wr_en,    UVM_ALL_ON)
     `uvm_field_int(rd_en,    UVM_ALL_ON)
-    `uvm_field_int(data_in,  UVM_ALL_ON)
-    `uvm_field_int(data_out, UVM_ALL_ON)
+    `uvm_field_int(data_in,  UVM_ALL_ON | UVM_HEX)
+    `uvm_field_int(data_out, UVM_ALL_ON | UVM_HEX)
     `uvm_field_int(full,     UVM_ALL_ON)
     `uvm_field_int(empty,    UVM_ALL_ON)
-  `uvm_object_utils_end // fifo_seq_item
-  */
+  `uvm_object_utils_end
 
-  
-  // case 2: manually write do_copy(), do_compare(), do_print()
-  `uvm_object_utils(fifo_seq_item)
-  
-
-  //default constraints
-  constraint c_default_dist {
-    wr_en dist {1 := 60, 0 := 40}; // write-biased for faster filling
-    rd_en dist {1 := 40, 0 := 60};
+  constraint c_valid_op {
+    (wr_en || rd_en) dist {
+      1'b1 := 80,
+      1'b0 := 20
+    };
   }
 
-  constraint c_valid_data {
-    //example: soft constraint, easily overriden, in case wanna try error injection in the future- ex: data_in == 300
-    soft data_in inside {[0:255]};
+  // Writes 60%, reads 40%: the FIFO drifts toward full, so full and empty are both reached
+  constraint c_wr_dist {
+    wr_en dist {
+      1'b1 := 60,
+      1'b0 := 40
+    };
   }
 
-  //constructor 
+  constraint c_rd_dist {
+    rd_en dist {
+      1'b1 := 40,
+      1'b0 := 60
+    };
+  }
+
   function new(string name = "fifo_seq_item");
     super.new(name);
-  endfunction
+  endfunction : new
 
-  // convert_2_string() - for a more peaceful debug experience, evrythangs have been organized beautifully, for visuali
-  virtual function string convert2string();
-    return $sformatf("rst_req = %0b, wr = %0b, rd = %0b, d_in = %0b, d_out = %0b, full = %0b, empty = %0b", rst_req, wr_en, rd_en, data_in, data_out, full, empty);
-  endfunction
-
-  
-  // case 2: manual do_copy(), do_compare(), do_print()
-
-  // manual do_copy 
-  // use do_copy (so that 2 uvc (mon & sco) can't affect each other's memory), 2 indepedent mem fields
-    // required if pass items through analysis ports (monitors ---> scoreboard)
-    // without do_copy, " aliased handles " - scoreboard sees stale data
   virtual function void do_copy(uvm_object rhs);
     fifo_seq_item rhs_;
-    // if cast failed,...
+
     if (!$cast(rhs_, rhs)) begin
-      `uvm_fatal("CAST", "do_copy cast failed")
+      `uvm_fatal(get_type_name(), "Cast failed in do_copy(): rhs is not of type fifo_seq_item")
+      return;
     end
 
     super.do_copy(rhs);
-    
-    //manually copying from source (rhs_) to destination (this)
+
     this.wr_en    = rhs_.wr_en;
     this.rd_en    = rhs_.rd_en;
-    this.rst_n    = rhs_.rst_n;
-    this.rst_req  = rhs_.rst_req;
     this.data_in  = rhs_.data_in;
+    this.rst_req  = rhs_.rst_req;
+    this.rst_n    = rhs_.rst_n;
     this.data_out = rhs_.data_out;
     this.full     = rhs_.full;
     this.empty    = rhs_.empty;
-  endfunction  
+  endfunction : do_copy
 
-  // manual do_compare
-  // field by field comparison (rhs >< uvm_comparer) 
   virtual function bit do_compare(uvm_object rhs, uvm_comparer comparer);
     fifo_seq_item rhs_;
-    if (!$cast(rhs_, rhs)) begin
-      return 0;
-    end 
-    else
-    return ( // this: actual signal from DUT (-> "actual_item".compare trong scoreboard), rhs: from the golden model
-      super.do_compare(rhs, comparer) &&
-      this.data_out == rhs_.data_out && 
-      this.full     == rhs_.full &&
-      this.empty    == rhs_.empty 
-    ); // if all theses're similiar then return 1
-  endfunction
 
-  // manual do_print
-  virtual function void do_print(uvm_printer printer);
-    super.do_print(printer);
-    printer.print_field("wr_en",    wr_en,    1, UVM_BIN);
-    printer.print_field("rd_en",    rd_en,    1, UVM_BIN);
-    printer.print_field("rst_n",    rst_n,    1, UVM_BIN);
-    printer.print_field("rst_req",  rst_req,  1, UVM_BIN);
-    printer.print_field("data_in",  data_in,  8, UVM_HEX);
-    printer.print_field("data_out", data_out, 8, UVM_HEX);
-    printer.print_field("full",     full,     1, UVM_BIN);
-    printer.print_field("empty",    empty,    1, UVM_BIN);
-  endfunction
-  
-endclass
+    if (!$cast(rhs_, rhs)) begin
+      `uvm_warning(get_type_name(), "Cast failed in do_compare(): rhs is not of type fifo_seq_item")
+      return 0;
+    end
+
+    return (super.do_compare(rhs, comparer) &&
+            (this.wr_en    == rhs_.wr_en)   &&
+            (this.rd_en    == rhs_.rd_en)   &&
+            (this.data_in  == rhs_.data_in)  &&
+            (this.data_out == rhs_.data_out) &&
+            (this.full     == rhs_.full)     &&
+            (this.empty    == rhs_.empty));
+  endfunction : do_compare
+
+  virtual function string convert2string();
+    return $sformatf("wr_en=%0b rd_en=%0b data_in=0x%02h data_out=0x%02h full=%0b empty=%0b",
+                     wr_en, rd_en, data_in, data_out, full, empty);
+  endfunction : convert2string
+
+endclass : fifo_seq_item

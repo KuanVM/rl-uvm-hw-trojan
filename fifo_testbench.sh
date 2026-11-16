@@ -5,7 +5,7 @@ make compile
 make sim
 
 # run with a specific test
-make sim TEST=fifo_random_test
+make sim TEST=fifo_test_random
 
 # change verbosity for debug
 make sim VERBOSITY=UVM_HIGH

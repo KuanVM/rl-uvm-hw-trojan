@@ -14,7 +14,8 @@
 //            = 1.080 hành động.
 // A0 (baseline) KHÔNG nằm trong lưới: nó dùng nguyên ràng buộc mặc định của
 // fifo_seq_item (wr_en 60/40, rd_en 40/60, i.i.d. từng chu kỳ) để khớp đúng
-// phân phối của fifo_random_test.
+// phân phối của fifo_test_random (seq_item hiện có thêm c_valid_op: 80% chu kỳ có
+// wr_en hoặc rd_en, nên tỉ lệ WR/RD/WR+RD/IDLE khác ghi chú MIX_BASE bên dưới).
 
 typedef enum int {MIX_BASE, MIX_WR, MIX_RD, MIX_WRRD, MIX_BAL}      k_mix_e;
 typedef enum int {BURST_SHORT, BURST_MED, BURST_LONG}               k_burst_e;

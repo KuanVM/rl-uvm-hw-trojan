@@ -1,5 +1,9 @@
 // =============================================================================
 // LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
+// 2026-11-16: Theo testbench viết tay mới: env.agt.sqr / env.scb; rl_obs và vif
+//             do test này tự tạo/lấy (fifo_env và fifo_base_test không còn giữ).
+//             det_sb_data = env.scb.num_mismatches; scoreboard mới chưa có kiểm
+//             tra cờ / giữ data_out (mục O1 của plan) nên det_sb_flag/hold = NA.
 // 2026-10-13: Tạo mới. fifo_rl_loop_test: chạy B test liên tiếp trong MỘT lần
 //             mô phỏng; giữa các test agent (rl_bandit) chọn preset knob A0..A9,
 //             nhận reward giả từ RB-01, ghi một dòng CSV mỗi test.
@@ -41,7 +45,9 @@ class fifo_rl_loop_test extends fifo_base_test;
   string       method_version = "rl-loop-v0.1";
   string       dut_id         = "sync_fifo_clean";
 
-  rl_bandit     agent;
+  rl_bandit        agent;
+  fifo_rl_observer rl_obs;   // thống kê theo từng test cho vòng lặp RL
+  virtual fifo_if  vif;
   rl_csv_logger logger;
   string        arm_names[$];
 
@@ -56,6 +62,10 @@ class fifo_rl_loop_test extends fifo_base_test;
 
   virtual function void build_phase(uvm_phase phase);
     super.build_phase(phase);
+    rl_obs = fifo_rl_observer::type_id::create("rl_obs", this);
+    if (!uvm_config_db #(virtual fifo_if)::get(this, "", "fifo_vif", vif))
+      if (!uvm_config_db #(virtual fifo_if)::get(this, "", "vif", vif))
+        `uvm_fatal("NOVIF", "Virtual interface 'fifo_vif'/'vif' not found in config_db")
     void'($value$plusargs("RL_POLICY=%s",    policy_s));
     void'($value$plusargs("RL_REWARD=%s",    reward_s));
     void'($value$plusargs("RL_CSV=%s",       csv_path));
@@ -73,6 +83,11 @@ class fifo_rl_loop_test extends fifo_base_test;
       `uvm_fatal("RLCFG", $sformatf("RL_FIXED_ARM=%0d ngoài khoảng 0..%0d", fixed_arm, fifo_knobs::NUM_PRESETS-1))
     if (csv_path == "")
       csv_path = $sformatf("rl_%s_%s_s%0d.csv", policy_s, reward_s, seed_tag);
+  endfunction
+
+  virtual function void connect_phase(uvm_phase phase);
+    super.connect_phase(phase);
+    env.agt.mon.ap.connect(rl_obs.analysis_export);
   endfunction
 
   // ---------------------------------------------------------------------------
@@ -108,7 +123,7 @@ class fifo_rl_loop_test extends fifo_base_test;
 
     // chờ reset ban đầu của driver xong
     wait (vif.rst_n === 1'b1);
-    repeat (2) @(posedge vif.clk);
+    repeat (2) @(vif.drv_cb);       // đồng bộ theo drv_cb (cùng sự kiện driver chờ), tránh mất item đầu
 
     for (int t = 0; t < num_tests; t++) begin
       run_one_test(t, stop);
@@ -133,7 +148,7 @@ class fifo_rl_loop_test extends fifo_base_test;
     fifo_knob_seq seq;
     real          reward;
     time          t0, t1;
-    int unsigned  sb_data0, sb_flag0, sb_hold0;
+    int unsigned  sb_data0;
     int unsigned  capped;
     bit           hit;
     string        vals[$];
@@ -142,25 +157,23 @@ class fifo_rl_loop_test extends fifo_base_test;
     k   = fifo_knobs::preset(arm);
     k.num_txn = num_txn;
 
-    sb_data0 = env.scoreboard.failed_mismatch_count;
-    sb_flag0 = env.scoreboard.flag_mismatch_count;
-    sb_hold0 = env.scoreboard.hold_mismatch_count;
+    sb_data0 = env.scb.num_mismatches;
 
-    env.rl_obs.start_test();
+    rl_obs.start_test();
     t0  = $time;
     seq = fifo_knob_seq::type_id::create($sformatf("knob_seq_%0d", t));
     seq.knobs = k;
-    seq.start(env.agent.sequencer);
-    repeat (2) @(posedge vif.clk);   // monitor lấy mẫu xong item idle cuối
-    env.rl_obs.end_test();
+    seq.start(env.agt.sqr);
+    repeat (2) @(vif.drv_cb);       // monitor lấy mẫu xong item idle cuối
+    rl_obs.end_test();
     t1  = $time;
 
-    hit = (env.rl_obs.t_rb01_events > 0);
+    hit = (rl_obs.t_rb01_events > 0);
     if (reward_s == "binary") begin
       reward = hit ? 1.0 : 0.0;
     end else begin
-      capped = (env.rl_obs.t_max_wfull_run >= fifo_rl_observer::RB01_LEN) ?
-               fifo_rl_observer::RB01_LEN : env.rl_obs.t_max_wfull_run;
+      capped = (rl_obs.t_max_wfull_run >= fifo_rl_observer::RB01_LEN) ?
+               fifo_rl_observer::RB01_LEN : rl_obs.t_max_wfull_run;
       reward = real'(capped) / real'(fifo_rl_observer::RB01_LEN);
     end
 
@@ -182,28 +195,28 @@ class fifo_rl_loop_test extends fifo_base_test;
       k.vec2str(),
       reward_s,
       $sformatf("%.4f", reward),
-      $sformatf("%0d", env.rl_obs.t_new_bins),
-      $sformatf("%0d", env.rl_obs.total_bins_hit),
+      $sformatf("%0d", rl_obs.t_new_bins),
+      $sformatf("%0d", rl_obs.total_bins_hit),
       $sformatf("%0d", fifo_rl_observer::NUM_BINS),
-      $sformatf("%0d", env.rl_obs.t_rb01_events),
+      $sformatf("%0d", rl_obs.t_rb01_events),
       $sformatf("%0d", hit),
-      (env.rl_obs.t_rb01_first_cycle < 0) ? "NA" : $sformatf("%0d", env.rl_obs.t_rb01_first_cycle),
-      $sformatf("%0d", env.rl_obs.t_max_wfull_run),
-      $sformatf("%0d", env.rl_obs.t_resets),
+      (rl_obs.t_rb01_first_cycle < 0) ? "NA" : $sformatf("%0d", rl_obs.t_rb01_first_cycle),
+      $sformatf("%0d", rl_obs.t_max_wfull_run),
+      $sformatf("%0d", rl_obs.t_resets),
       $sformatf("%0d", seq.n_reset_injected),
       $sformatf("%0d", seq.n_replayed_bursts),
-      $sformatf("%0d", env.scoreboard.failed_mismatch_count - sb_data0),
-      $sformatf("%0d", env.scoreboard.flag_mismatch_count   - sb_flag0),
-      $sformatf("%0d", env.scoreboard.hold_mismatch_count   - sb_hold0),
-      $sformatf("%0d", env.rl_obs.t_cycles),
+      $sformatf("%0d", env.scb.num_mismatches - sb_data0),
+      "NA",                               // det_sb_flag: chưa kiểm tra trong scoreboard (O1)
+      "NA",                               // det_sb_hold: chưa kiểm tra trong scoreboard (O1)
+      $sformatf("%0d", rl_obs.t_cycles),
       $sformatf("%0d", t1 - t0),          // timeunit của package = 1ns (-timescale 1ns/1ps)
       (stop_on_hit && hit) ? "stop_on_hit" : "ok"
     };
     logger.write_row(vals);
 
     `uvm_info(get_type_name(), $sformatf("test %0d arm=%0d(%s) reward=%.3f rb01=%0d new_bins=%0d cycles=%0d",
-              t, arm, arm_names[arm], reward, env.rl_obs.t_rb01_events,
-              env.rl_obs.t_new_bins, env.rl_obs.t_cycles), UVM_MEDIUM)
+              t, arm, arm_names[arm], reward, rl_obs.t_rb01_events,
+              rl_obs.t_new_bins, rl_obs.t_cycles), UVM_MEDIUM)
 
     stop = stop_on_hit && hit;
   endtask
