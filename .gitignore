@@ -4,4 +4,14 @@
 transcript
 modelsim.ini
 work/
-results/
+# root-level RL outputs only (uvm/doc/results/ must stay tracked)
+/results/
+
+# Questa libraries and run outputs of the handwritten UVM flow (uvm/fifo_uvm)
+work_*/
+wlft*
+*.ucdb
+covhtmlreport/
+uvm/fifo_uvm/out/
+tcl_stacktrace.txt
+__pycache__/
