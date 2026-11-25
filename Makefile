@@ -1,5 +1,11 @@
 # =============================================================================
 # LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
+# 2026-11-25: TOP = tb_top (top chung có SVA, W-06, ISSUE-014) thay cho fifo_top.
+#             Biên dịch fifo_assertions.sv (bind vào DUT trong tb_top) thay cho
+#             fifo_sva.sv (trước đây được biên dịch nhưng không bind ở đâu, nên
+#             luồng RL không có assertion nào chạy, ISSUE-008).
+#             rl_run truyền +WATCHDOG_NS=$(WATCHDOG_NS) (mặc định 100 ms) vì
+#             tb_top mặc định chỉ 1 ms.
 # 2026-10-13: Sửa plusarg có khoảng trắng/tab trước dấu "=" (Questa nhận thành
 #             2 đối số riêng). Seed dùng -sv_seed (Questa) thay +ntb_random_seed
 #             (cú pháp VCS, Questa bỏ qua); SEED mặc định 1. Thêm PLUSARGS tự do.
@@ -12,13 +18,13 @@
 # -- PATHS --
 RTL_DIR   = ./rtl
 UVM_DIR   = ./uvm/fifo_uvm
-TOP       = fifo_top
+TOP       = tb_top
 
 # -- Src files --
 RTL_SRC   = $(RTL_DIR)/sync_fifo_clean.sv
 UVM_SRC   = $(UVM_DIR)/fifo_if.sv \
             $(UVM_DIR)/fifo_pkg.sv \
-            $(UVM_DIR)/fifo_sva.sv \
+            $(UVM_DIR)/fifo_assertions.sv \
             $(UVM_DIR)/$(TOP).sv
 
 # -- Sim settings --
@@ -39,6 +45,7 @@ RL_REWARD ?= binary
 RL_TESTS  ?= 100
 RL_TXN    ?= 200
 RL_DIR    ?= results/rl
+WATCHDOG_NS ?= 100000000
 RL_TAG     = rl_$(RL_POLICY)_$(RL_REWARD)_s$(SEED)
 SEEDS     ?= 1 2 3 4 5 6 7 8 9 10
 POLICIES  ?= fixed random ucb1
@@ -81,6 +88,7 @@ rl_run:
 	  +UVM_TESTNAME=fifo_rl_loop_test \
 	  +UVM_VERBOSITY=UVM_LOW \
 	  +NODUMP \
+	  +WATCHDOG_NS=$(WATCHDOG_NS) \
 	  +RL_POLICY=$(RL_POLICY) +RL_REWARD=$(RL_REWARD) \
 	  +RL_TESTS=$(RL_TESTS) +RL_TXN=$(RL_TXN) +RL_SEED=$(SEED) \
 	  +RL_CSV=$(RL_DIR)/$(RL_TAG).csv \
