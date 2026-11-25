@@ -5,8 +5,8 @@
 | **Design Name** | `sync_fifo` |
 | **Author** | Vũ Minh Quân |
 | **Date Created** | 2026-09-17 |
-| **Last Updated** | 2026-11-16 |
-| **Version** | 1.1 |
+| **Last Updated** | 2026-11-25 |
+| **Version** | 1.2 |
 | **Status** | Executed (v1). Open items listed in [Section 9](#9-execution-status-and-results) |
 | **Tools** | Questa 2021.2, UVM 1.1d |
 | **Methodology** | UVM (Universal Verification Methodology) |
@@ -18,7 +18,8 @@
 |---|---|---|
 | 1.0 | 2026-09-17 | Initial plan |
 | 1.1 | 2026-11-06 | Plan aligned with implementation; status columns, results and open items added |
-| 1.1.1 | 2026-11-16 | Paths changed to the repository layout (§3.3, §3.4); O7 scoreboard part done |
+| 1.1.1 | 2026-11-16 | Paths changed to the repository layout (§3.3, §3.4); O7 scoreboard part done; O8, O9 added |
+| 1.2 | 2026-11-25 | Scoreboard replaced by the PR #1 reference model (own occupancy; data, flag and hold checks; reset). Regression and bug injection re-run (§9). O8 closed; O1 flag part closed |
 
 ---
 
@@ -162,7 +163,7 @@ flowchart TD
 | Sequencer | `fifo_sequencer.sv` | `uvm_sequencer` | Arbitrates between sequences, passes items to driver (mostly boilerplate) |
 | Driver | `fifo_driver.sv` | `uvm_driver` | Gets seq_items via `seq_item_port`, drives DUT pins through `drv_cb`, applies the initial reset |
 | Monitor | `fifo_monitor.sv` | `uvm_monitor` | Passively samples all signals via `mon_cb`, broadcasts via `uvm_analysis_port` |
-| Scoreboard | `fifo_scoreboard.sv` | `uvm_scoreboard` | Receives from monitor via `uvm_tlm_analysis_fifo`, maintains reference queue `[$]`, compares on every read |
+| Scoreboard | `fifo_scoreboard.sv` | `uvm_scoreboard` | Receives from monitor via `uvm_tlm_analysis_fifo` (`mon_fifo`). Reference queue `[$]` with its own occupancy (never uses the DUT's `full`/`empty`). Checks 1.1 read data (1-cycle latency), 1.2 `full`/`empty` against the model, 1.4 `data_out` holds when there is no read. Clears the model on `rst_n = 0` |
 | Coverage | `fifo_coverage.sv` | `uvm_subscriber` | Receives from monitor, samples covergroup on every transaction |
 | Agent | `fifo_agent.sv` | `uvm_agent` | Bundles sequencer + driver + monitor, supports `UVM_ACTIVE`/`UVM_PASSIVE` mode |
 | Environment | `fifo_env.sv` | `uvm_env` | Instantiates agent + scoreboard + coverage, connects TLM ports |
@@ -571,13 +572,13 @@ Done: implemented and passing. Indirect: no separate test, covered by another te
 | R2 | Pointer wrap only works for power-of-2 DEPTH | Tests pass at DEPTH=32 but design breaks at DEPTH=20 | Medium | Add parameterized test with non-power-of-2 DEPTH | Open: only DEPTH=32 simulated (O6) |
 | R3 | UVM `config_db` / virtual interface wiring errors | Simulation crashes before any test runs | High (first time) | Bring up `tb_top` → `fifo_if` → DUT first, then add classes | Resolved |
 | R4 | Random constraints don't hit corner cases (full, empty) | Low coverage on `cx_wr_full`, `cx_rd_empty` | Medium | Directed tests T06, T07 | Occurred: T07 not written; read-when-empty reached only in some seeds (C05 = 0 hits with seed 1). See O3 |
-| R5 | Simultaneous R/W scoreboard logic mismatches RTL | Wrong order for same-cycle R+W | Medium | Process write before read in scoreboard | Handled; confirmed by `BUG_COUNT_RW` detection |
+| R5 | Simultaneous R/W scoreboard logic mismatches RTL | Wrong order for same-cycle R+W | Medium | Process write before read in scoreboard | Handled: reads and writes are accepted from the model's own occupancy; the read pops before the write pushes. Confirmed by `BUG_COUNT_RW` detection |
 
 ---
 
 ## 9. Execution Status and Results
 
-Regression run on 2026-11-05 with Questa 2021.2. Evidence files are in [`results/`](results/).
+Regression run on 2026-11-05 with Questa 2021.2. **Re-run on 2026-11-25 with the v1.2 scoreboard** (Questa 2021.2_1): regression summary identical (same PASS table, reads checked and coverage); flag and hold checks give 0 false failures on the clean RTL; bug-injection table updated below. Evidence files are in [`results/`](results/). The report in [`report/`](report/) still describes the v1.1 scoreboard.
 
 ### 9.1 Regression
 
@@ -616,22 +617,24 @@ Five RTL bugs were compiled in one at a time (`+define+BUG_<NAME>`), each run wi
 
 | Bug | Detected by | Checks that fired |
 |---|---|---|
-| `BUG_FULL_EARLY` | fill_drain, write_when_full, random (5/5 seeds each) | A02; scoreboard only in random |
-| `BUG_WRITE_WHEN_FULL` | write_when_full, random (5/5) | A04 + scoreboard |
-| `BUG_READ_WHEN_EMPTY` | **random only, 3/5 seeds** | A05 + scoreboard |
-| `BUG_COUNT_RW` | random (5/5) | A10 + scoreboard |
-| `BUG_DATA_BITFLIP` | fill_drain, write_when_full, random (5/5) | scoreboard only |
+| `BUG_FULL_EARLY` | fill_drain, write_when_full, random (5/5 seeds each) | A02 + scoreboard flag + data (v1.1: A02 only, scoreboard only in random) |
+| `BUG_WRITE_WHEN_FULL` | write_when_full, random (5/5) | A04 + scoreboard data |
+| `BUG_READ_WHEN_EMPTY` | **random only, 3/5 seeds** | A05 + scoreboard data + hold |
+| `BUG_COUNT_RW` | random (5/5) | A10 + scoreboard data + flag + hold |
+| `BUG_DATA_BITFLIP` | fill_drain, write_when_full, random (5/5) | scoreboard data only |
 
-**5/5 detected.** The SVA catches control bugs, and the scoreboard is the only check that catches data corruption.
+**5/5 detected**, with the same tests, seeds and first-error times as the v1.1 run (2026-11-05). The SVA catches control bugs first; with v1.2 the scoreboard also catches every bug on its own, and it is still the only check that catches data corruption.
 
 ### 9.4 Open Items
 
 | ID | Item | Found by | Action |
 |---|---|---|---|
-| O1 | Scoreboard passes while data is lost: with `BUG_FULL_EARLY` + fill_drain it reports 0 mismatches and 1 unread item; only A02 fails | Bug injection | Compare `full`/`empty` against the model; check leftover items at end of test |
+| O1 | Scoreboard passes while data is lost: with `BUG_FULL_EARLY` + fill_drain it reports 0 mismatches and 1 unread item; only A02 fails (ISSUE-009) | Bug injection | Compare `full`/`empty` against the model; check leftover items at end of test. **2026-11-25:** flag check done (v1.2 scoreboard; `BUG_FULL_EARLY` now fails the scoreboard in every test that fills the FIFO). Still open: leftover items in the model at end of test are reported but do not fail the run |
 | O2 | SVA failures use `$error`, so UVM does not count them | Bug injection | Report through `` `uvm_error ``; until then, scripts also check `** Error` |
 | O3 | No directed read-when-empty test (T07) | Bug injection, R4 | Add `fifo_test_read_when_empty` |
 | O4 | `cp_occupancy` and transition coverage (Section 4.1–4.2) not implemented | Plan review | Implement, or remove from plan with justification |
 | O5 | Unreachable `default:` counted as a line/branch miss | Coverage review | Apply a coverage exclusion with a written justification |
 | O6 | Only DEPTH = 32 simulated (R2) | Plan review | Run a second configuration, or document as out of scope |
 | O7 | No reset during traffic; scoreboard does not clear its model on reset | Toggle coverage | Add a mid-test reset test and reset handling in the scoreboard. **2026-11-16:** scoreboard now clears its model on `rst_n=0` (exercised by the RL reset arms); directed mid-test reset test still missing |
+| O8 | Scoreboard gates reads on the DUT's sampled `empty`, not on its own occupancy, so a corrupted `empty` steers the model (lab notebook ISSUE-010) | Study review 2026-11-16 | Gate reads with `ref_count != 0`; check `full`/`empty` against the model (together with O1). **Done 2026-11-25** (v1.2 scoreboard) |
+| O9 | A02–A06 and A08–A10 read DUT internals (`count`, `wr_ptr`, `rd_ptr`): white-box checks, not interface checks (ISSUE-011) | Study review 2026-11-16 | Label them white-box; add interface-only versions for black-box use |

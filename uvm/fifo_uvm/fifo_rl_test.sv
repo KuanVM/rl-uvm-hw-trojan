@@ -1,9 +1,9 @@
 // =============================================================================
 // LỊCH SỬ THAY ĐỔI (mới nhất ở trên)
+// 2026-11-25: Scoreboard của PR #1 được dùng lại: det_sb_data/flag/hold lấy từ
+//             env.scb.failed/flag/hold_mismatch_count (không còn NA).
 // 2026-11-16: Theo testbench viết tay mới: env.agt.sqr / env.scb; rl_obs và vif
 //             do test này tự tạo/lấy (fifo_env và fifo_base_test không còn giữ).
-//             det_sb_data = env.scb.num_mismatches; scoreboard mới chưa có kiểm
-//             tra cờ / giữ data_out (mục O1 của plan) nên det_sb_flag/hold = NA.
 // 2026-10-13: Tạo mới. fifo_rl_loop_test: chạy B test liên tiếp trong MỘT lần
 //             mô phỏng; giữa các test agent (rl_bandit) chọn preset knob A0..A9,
 //             nhận reward giả từ RB-01, ghi một dòng CSV mỗi test.
@@ -148,7 +148,7 @@ class fifo_rl_loop_test extends fifo_base_test;
     fifo_knob_seq seq;
     real          reward;
     time          t0, t1;
-    int unsigned  sb_data0;
+    int unsigned  sb_data0, sb_flag0, sb_hold0;
     int unsigned  capped;
     bit           hit;
     string        vals[$];
@@ -157,7 +157,9 @@ class fifo_rl_loop_test extends fifo_base_test;
     k   = fifo_knobs::preset(arm);
     k.num_txn = num_txn;
 
-    sb_data0 = env.scb.num_mismatches;
+    sb_data0 = env.scb.failed_mismatch_count;
+    sb_flag0 = env.scb.flag_mismatch_count;
+    sb_hold0 = env.scb.hold_mismatch_count;
 
     rl_obs.start_test();
     t0  = $time;
@@ -205,9 +207,9 @@ class fifo_rl_loop_test extends fifo_base_test;
       $sformatf("%0d", rl_obs.t_resets),
       $sformatf("%0d", seq.n_reset_injected),
       $sformatf("%0d", seq.n_replayed_bursts),
-      $sformatf("%0d", env.scb.num_mismatches - sb_data0),
-      "NA",                               // det_sb_flag: chưa kiểm tra trong scoreboard (O1)
-      "NA",                               // det_sb_hold: chưa kiểm tra trong scoreboard (O1)
+      $sformatf("%0d", env.scb.failed_mismatch_count - sb_data0),
+      $sformatf("%0d", env.scb.flag_mismatch_count   - sb_flag0),
+      $sformatf("%0d", env.scb.hold_mismatch_count   - sb_hold0),
       $sformatf("%0d", rl_obs.t_cycles),
       $sformatf("%0d", t1 - t0),          // timeunit của package = 1ns (-timescale 1ns/1ps)
       (stop_on_hit && hit) ? "stop_on_hit" : "ok"
