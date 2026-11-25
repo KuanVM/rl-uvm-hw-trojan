@@ -60,7 +60,7 @@ VERDICT=$([ -z "$r" ] && echo PASS || echo "FAIL (${r% })")
   echo "== UVM report counts =="
   grep -E "^# UVM_(INFO|WARNING|ERROR|FATAL) :" "$D/run.log"
   echo; echo "== Scoreboard summary =="
-  grep -E "Configured DEPTH|Total Writes|Total Reads|Data Matches|Data Mismatches|Unread Items|Final ref_count|SCOREBOARD CHECK" "$D/run.log" \
+  grep -E "Configured DEPTH|Total Writes|Total Reads|Data Matches|Data Mismatches|Flag Mismatches|Hold Mismatches|Unread Items|Reset cycles|SCOREBOARD CHECK" "$D/run.log" \
     | sed 's/.*\] *//'
   echo; echo "== SVA failures (assertion: count) =="
   grep -oE "Scope: [^ ]*sva_inst\.[A-Z0-9_]+" "$D/run.log" | sed 's/.*sva_inst\.//' | sort | uniq -c \

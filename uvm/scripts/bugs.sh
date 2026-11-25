@@ -31,8 +31,9 @@ run_failed() {   # $1 = log ; returns 0 if the run FAILED
 checks_fired() {
   local f=$1
   grep -oE "Scope: [^ ]*sva_inst\.[A-Z0-9_]+" "$f" | sed 's/.*sva_inst\.//'
-  grep -q  "\[MISMATCH\]" "$f"        && echo "SCB_MISMATCH"
-  grep -q  "UNDERFLOW ANOMALY" "$f"   && echo "SCB_UNDERFLOW"
+  grep -q  "FIFO_DATA_OUT_CHK\] FAIL" "$f"  && echo "SCB_DATA"
+  grep -q  "FIFO_FLAG_CHK\] FAIL" "$f"      && echo "SCB_FLAG"
+  grep -q  "FIFO_DOUT_HOLD_CHK\] FAIL" "$f" && echo "SCB_HOLD"
   grep -qE "UVM_FATAL :\s+[1-9]" "$f" && echo "UVM_FATAL"
 }
 # Time of the first error in ns (SVA prints "Time: N ns", UVM prints "@ N" in ps)

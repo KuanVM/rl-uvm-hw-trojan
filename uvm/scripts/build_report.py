@@ -130,11 +130,10 @@ L_DRV = code(clean(block(drv, r"virtual task drive_item", r"endtask")),
              "Listing 4. Driver: one item per clock", "uvm/fifo_uvm/fifo_driver.sv")
 L_MON = code(clean(block(mon, r"forever begin", r"^    end")),
              "Listing 5. Monitor: samples the bus every clock", "uvm/fifo_uvm/fifo_monitor.sv")
-# from the latency check down to the end of the read branch; the following
-# "read ignored" branch only logs, so it is cut and the if-block closed instead
-_scb = clean(block(scb, r"if \(expect_read\) begin", r"end else if \(item.rd_en && item.empty\)"))
-L_SCB = code(_scb[:-1] + ["      end"],
-             "Listing 6. Scoreboard: reference queue with 1-cycle read latency", "uvm/fifo_uvm/fifo_scoreboard.sv")
+# compare(): reset handling, 1.1 data / 1.4 hold, 1.2 flags, model update
+_scb = clean(block(scb, r"virtual function void compare", r"endfunction"))
+L_SCB = code(_scb,
+             "Listing 6. Scoreboard: queue model with its own occupancy; data, flag and hold checks", "uvm/fifo_uvm/fifo_scoreboard.sv")
 L_ITM = code(clean(block(itm, r"constraint c_valid_op", r"constraint c_rd_dist")) +
              clean(block(itm, r"constraint c_rd_dist", r"^  }"))[1:],
              "Listing 7. Stimulus constraints", "uvm/fifo_uvm/fifo_seq_item.sv")
