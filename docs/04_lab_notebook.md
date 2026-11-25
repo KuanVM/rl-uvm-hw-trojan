@@ -10,7 +10,8 @@
 
 | Date | Change |
 |---|---|
-| 2026-11-16 | Handwritten UVM testbench (`tb_top`, `fifo_assertions`, 4 tests) merged with the RL loop; FIFO plan v1.1 + results in `uvm/doc/`. ISSUE-008 resolved for `tb_top`; ISSUE-009 added (scoreboard flag/hold checks). |
+| 2026-11-25 | §1 rewritten as one tracklist (testbench / plan and decisions / RL loop / Trojans) with due dates from the weekly plan. Scoreboard replaced by the PR #1 model (v1.2). ISSUE-009 and ISSUE-010 resolved (leftover-item check still open as FIFO plan O1). §1 updated; daily-log entry 2026-11-25. Weekly plan: `notes/week_2026-11-25_plan.md`. |
+| 2026-11-16 | Handwritten UVM testbench (`tb_top`, `fifo_assertions`, 4 tests) merged with the RL loop; FIFO plan v1.1 + results in `uvm/doc/`. ISSUE-008 resolved for `tb_top`; ISSUE-009 added (scoreboard flag/hold checks). Later the same day: §0 filled; §1 status table re-checked against the code; ISSUE-010…ISSUE-014 added; EXP-001 marked done and EXP-001b added; daily-log entry 2026-11-16. |
 | 2026-10-26 | Updated §1 study status after PR #1 merge. ISSUE-001/002 marked resolved; added ISSUE-008 (SVA not bound). |
 | 2026-10-24 | Added daily-log entry "RL loop infrastructure validated on Windows / Questa 2024.1" (pseudo-target RB-01; not a research result). |
 | 2026-09-25 | Scope renamed from FIFO-only to multi-DUT study. Added daily-log entry for the advisor review. Filled decision register DEC-001…DEC-013 and issue register ISSUE-001…ISSUE-007. Added sections H (pre-registration record), I (knowledge-exposure log) and J (advisor review record). Updated the experiment registry and work packages. Templates kept unchanged. |
@@ -23,40 +24,78 @@
 | Field | Value |
 |---|---|
 | Project ID | `[e.g., RL-UVM-HT-2026]` |
-| Main branch / commit | `[hash]` |
-| Simulator / version | Questa 2021.2 (primary); iverilog + GTKWave (backup) — from FIFO verification plan v1.0 |
-| UVM version | `[version]` |
+| Main branch / commit | `main` @ `947a871` (2026-11-16, after PR #2) |
+| Simulator / version | Questa 2021.2_1 on Linux (handwritten regression, bug injection); Questa 2024.1 on Windows (RL runs of 2026-10-24). Two versions in use: see ISSUE-013 |
+| UVM version | UVM 1.1d (built into both Questa versions) |
 | OS and host | `[OS, CPU, RAM]` |
 | Python / RL environment | `[N/A until G2]` |
 | DUTs | FIFO (MVP host); Tier-A hosts after screening; Tier-B generated Trojans |
 | FIFO parameters | 8-bit × 32, synchronous active-low reset |
-| Clean FIFO RTL path | `sync_fifo_clean.sv` `[commit]` |
+| Clean FIFO RTL path | `rtl/sync_fifo_clean.sv` (RL flow); `rtl/sync_fifo.sv` = same RTL + 5 `ifdef BUG_*` switches, all off by default (handwritten flow) |
 | Protocol version | `03_experiment_protocol.md` v0.2 `[hash]` |
 | Scope version | `01_scope_threat_model.md` v0.2 `[hash]` |
-| Dataset / results location | `[path]` |
+| Dataset / results location | Handwritten testbench: `uvm/doc/results/`, `uvm/doc/report/` (tracked). RL loop: `results/rl/` (local, not tracked) |
 | Blue owner / Red owner | `[name]` / `[name]` |
 
 ## 1. Current study status
 
+**As of 2026-11-25.** `main` @ `947a871`; scoreboard change (v1.2) done locally, not yet committed. Task IDs W-xx, D-xx, RL-xx refer to `notes/week_2026-11-25_plan.md`. Owner "Đức (proposed)" means not yet agreed with Đức.
+
+### 1.1 Testbench (FIFO)
+
 | Work package | Owner | Status | Due date | Evidence / link |
 |---|---|---|---|---|
-| Clean FIFO RTL | | Done | | `sync_fifo_clean.sv` |
-| `fifo_if.sv` compiles cleanly | Blue | Done (ISSUE-001, ISSUE-002 fixed in code; checked 2026-10-26) | | `uvm/fifo_uvm/fifo_if.sv` |
-| UVM skeleton (M3): agent, scoreboard, coverage, random test | Blue | Done; 0 mismatches (2026-10-24) | | §A 2026-10-24 |
-| RL loop infrastructure (knobs, knob seq, bandit, RL observer, CSV logger) | Blue | Done; loop check on RB-01 only (PR #1, `2a4f920`) | | §A 2026-10-24 |
-| SVA fixes (ISSUE-008) | Blue | Done for `tb_top` (`fifo_assertions.sv` A01–A10 bound, 0 failures in 20 runs); RL top `fifo_top` still has no SVA | | `uvm/doc/FIFO_VERIFICATION_PLAN.md` §5, §9 |
-| Handwritten UVM regression + bug injection | Blue | Done 2026-11-05: 20/20 PASS, functional cov 100 %, 5/5 bugs detected; open items O1–O7 | | `uvm/doc/results/`, `uvm/doc/report/` |
-| End-of-test objection issue (total 1999 instead of 2000) | Blue | Open | | §A 2026-10-24 |
-| RB-01 follow-ups: ε-greedy/binary run; per-seed hit counts + hit-test statistic in `rl_summary.py` | Blue | Open | | §A 2026-10-24 |
-| FIFO spec decisions + reference model rules | Blue | In progress (ISSUE-003) | | FIFO plan v1.1 (deleted from `main`; in history at `89ae1f3`) |
-| FIFO pre-registration G0 (coverage, rare-bins, detectors, knobs, UCB1 c / ε, B, N) | Blue | Not started (next priority) | | §H |
-| Assign blue / red owners | Team | Open | | DEC-008 |
+| Clean FIFO RTL | | Done | | `rtl/sync_fifo_clean.sv`; bug-switch copy `rtl/sync_fifo.sv` |
+| `fifo_if.sv` compiles cleanly | Blue | Done (ISSUE-001, ISSUE-002) | | `uvm/fifo_uvm/fifo_if.sv` |
+| Handwritten UVM testbench (`tb_top`, agent, scoreboard, coverage, SVA A01–A10, 4 tests) | Quân | Done 2026-11-05; re-run 2026-11-16 and 2026-11-25: 20/20 PASS, functional cov 100 %, total 98.17 % | | FIFO plan §9; `uvm/doc/results/regression_summary.txt` |
+| Bug-injection validation (5 RTL bugs × 4 tests × 5 seeds) | Quân | Done; 5/5 detected; re-run 2026-11-25 with the v1.2 scoreboard | | `uvm/doc/results/bug_report.txt` |
+| Scoreboard v1.2: PR #1 model (own occupancy; data, flag, hold checks; reset) | Quân | Done locally 2026-11-25 (ISSUE-009, ISSUE-010 resolved); **not committed** | | FIFO plan §3.2, §9.3; §A 2026-11-25 |
+| `rtl/sync_fifo_clean.sv` local module rename (`sync_fifo` → `sync_fifo_clean`) breaks the RL flow if committed alone | Quân | **Open: decide** (W-03) | 2026-11-25 | `git diff rtl/` |
+| PR for scoreboard v1.2 + docs; inform Đức (`fifo_rl_test.sv` changed) | Quân | Not started (W-04), after W-03 | 2026-11-26 | |
+| Untrack build artifacts (27 files: `work/`, `transcript`, `vsim.wlf`, `fifo_dump.vcd`, `modelsim.ini`) | Quân | Not started (W-05, RL-00) | 2026-11-30 | |
+| One top for both flows; RL loop runs with SVA (ISSUE-014) | Quân + Đức (proposed) | Not started (W-06) | 2026-12-01 | |
+| SVA labelled interface-only (BB) vs internal (GB) (ISSUE-011, O9) | Quân | Not started (W-07) | 2026-12-01 | Scope §7 |
+| Directed read-when-empty test T07 (O3; `BUG_READ_WHEN_EMPTY` only 3/5) | Quân | Not started (W-08) | 2026-12-01 | FIFO plan §9.3 |
+| SVA failures counted by UVM; `det_sva` column in RL CSV (O2) | Quân + Đức (proposed) | Not started (W-09) | 2026-12-02 | |
+| Leftover items at end of test fail the run (O1 remainder) | Quân | Open | | FIFO plan §9.4 |
+| Other testbench open items: O4 occupancy/transition coverage, O5 `default:` waiver, O6 second DEPTH, O7 mid-test reset test | Quân | Open | | FIFO plan §9.4 |
+| End-of-test objection issue (total 1999 instead of 2000) | Quân | Old testbench replaced; re-check on the new one | | §A 2026-10-24 |
+
+### 1.2 Plan, documents and decisions
+
+| Work package | Owner | Status | Due date | Evidence / link |
+|---|---|---|---|---|
+| Study the project and RL basics (`notes/00_doc_truoc_tien.md`, `rl_study_guide.md` Module 1–4, Sutton & Barto ch. 2) | Quân | Not started | 2026-11-28 | Weekly plan 26–28/11 |
+| Four open decisions: meaning of "RL-written UVM"; role of the handwritten suite (baseline B-H?); handwritten suites for FIFO only or all DUTs; who is Red | Quân → team + advisor | Open; answers due | 2026-11-28 | `notes/00_doc_truoc_tien.md` §7 |
+| Revise `docs/01` (RQs, §10 baselines) and `docs/03` (§8, §19) after the decisions | Quân | Blocked by the four decisions (D-01) | 2026-12-03 | |
+| Record the decisions as DEC-014…DEC-017 | Quân | Blocked (D-02) | 2026-12-03 | §C1 |
+| Tag the handwritten suite as a G0 artifact (`prereg/fifo/handwritten-suite`) | Quân | Blocked by decision 2 + advisor (D-03) | | |
+| One FIFO plan of record: merge old §0, §3.7, §3.8, §4.5 (`89ae1f3`) into the FIFO plan v1.3 (ISSUE-012) | Quân | Not started (W-10) | 2026-12-02 | |
+| FIFO spec decisions + reference-model rules | Quân | Rules implemented in scoreboard v1.2; still to be written into plan v1.3 (ISSUE-003, W-10) | 2026-12-02 | old plan `89ae1f3` §3.8 |
+| Assign Blue / Red owners | Team + advisor | Open (D-05, DEC-008) | 2026-12-04 | |
 | Advisor confirmation of DEC-003…DEC-013 | Team | Open | | §C1 |
-| Tier-A screening S1–S7 | Red | Not started | | Protocol §5.1 |
-| Tier-B generator (DTjRTL or in-house) | Red | Not started | | |
-| Rarity calibration | Red | Not started | | Protocol §6 |
-| G2 pilot | Blue + Red | Not started | | Protocol §16 |
+| FIFO pre-registration G0 (coverage, rare-bins, detectors, knobs, π₀, c / ε, B, N) | Quân + Đức | Not started; draft `docs/prereg/fifo_g0_draft.md` planned | 2026-12-05 (draft start) | §H |
 | Literature reading queue | | In progress | | Lit review §10.2 |
+
+### 1.3 RL loop
+
+| Work package | Owner | Status | Due date | Evidence / link |
+|---|---|---|---|---|
+| RL loop infrastructure (knobs, knob seq, bandit, RL observer, CSV logger) | Đức | Done (PR #1); ported 2026-11-16 (PR #2); 2026-11-25 `det_sb_flag`/`det_sb_hold` filled again | | §A 2026-10-24, 2026-11-16, 2026-11-25 |
+| RB-01 matrix re-run on one machine (Linux 2021.2) and one π₀; per-seed stats in `rl_summary.py` (ISSUE-013) | Đức (proposed) | Not started (RL-06); results of 2026-10-24 not comparable | 2026-12-04 | §A 2026-10-24 |
+| Reward v0.2 (ΔC, ΔR, D, Cost), novelty reward, rare-bin DRAFT | Đức (proposed) | Not started (RL-01/02/03), after W-09 and W-10 | | Weekly plan §3.3 |
+| Hyperparameter sweep on pseudo-targets; compute measurement; fix N, B | Đức (proposed) | Not started (RL-04/05/09) | | |
+| CSV traceability columns (`git_commit`, `simulator_version`, reward components) | Đức (proposed) | Not started (RL-08) | | Protocol §11 |
+| Design note M1/M2; action space choice | Đức (proposed) | Not started (RL-10/12) | | |
+
+### 1.4 Trojans and campaigns (after G0)
+
+| Work package | Owner | Status | Due date | Evidence / link |
+|---|---|---|---|---|
+| Tier-A screening S1–S7 | Red (unassigned) | Not started | | Protocol §5.1 |
+| Tier-B generator (DTjRTL or in-house) | Red (unassigned) | Not started | | |
+| Rarity calibration | Red (unassigned) | Not started | | Protocol §6 |
+| G2 pilot | Blue + Red | Not started | | Protocol §16 |
 
 ---
 
@@ -216,6 +255,75 @@ RB-01 = at least 3 consecutive cycles with `wr_en=1` while the spec occupancy mo
 
 ---
 
+## 2026-11-25 - Scoreboard replaced by the PR #1 reference model
+
+**Author:** Vũ Minh Quân  
+**Phase:** UVM
+
+> Testbench validation only. Nothing below is a research result.
+
+### Work completed
+- `fifo_scoreboard.sv` replaced by the PR #1 version (`2a4f920`, Minh Đức): own-occupancy queue model, checks 1.1 data, 1.2 `full`/`empty`, 1.4 `data_out` hold; reset clears the model. Adapted: port `mon_fifo`, DEPTH from config_db, per-line summary with the labels the scripts grep, `SCOREBOARD CHECK PASSED/FAILED`, comments in English.
+- `fifo_rl_test.sv`: `det_sb_data/flag/hold` from `failed/flag/hold_mismatch_count` (no longer `NA`).
+- `uvm/scripts/bugs.sh`, `run_one.sh`, `build_report.py` adapted to the scoreboard messages.
+
+### Commands executed
+```bash
+cd uvm/fifo_uvm
+make regress
+make bugs
+```
+
+### Observations
+- Regression 20/20 PASS; `summary.txt` identical to 2026-11-05 (reads checked seed 1: 0/32/32/853; total coverage 98.17 %). Flag and hold checks: 0 false failures on the clean RTL.
+- Bug injection: 5/5 detected, same tests, seeds and first-error times as before. The scoreboard now also fails `BUG_FULL_EARLY` (flag + data) in fill_drain and write_when_full, where v1.1 passed (finding F1). `BUG_READ_WHEN_EMPTY` still only in random 3/5 (O3).
+- RL loop (ucb1 100 tests; fixed A5, A9 with mid-test resets): 0 errors; RL_SUMMARY same as 2026-11-16; flag/hold columns 0.
+
+### Evidence
+- `uvm/doc/results/bug_report.txt` (updated), `uvm/doc/results/regression_summary.txt` (unchanged)
+
+### Open issues and next action
+- Local edit renames the module in `rtl/sync_fifo_clean.sv`; resolve before the PR (plan W-03) → Quân.
+- Open the scoreboard PR and inform Đức (`fifo_rl_test.sv` changed) → Quân.
+
+---
+
+## 2026-11-16 - Handwritten UVM testbench merged; RL loop ported
+
+**Author:** Vũ Minh Quân  
+**Phase:** UVM / documentation
+
+> Testbench validation only. The 5 injected bugs are always-active RTL defects, not Trojans. Nothing below is a research result.
+
+### Work completed
+- The handwritten UVM testbench (developed in a separate `00_uvm_fifo` tree, executed 2026-11-05) replaced the previous agent, scoreboard, coverage and tests in `uvm/fifo_uvm/`. Plan v1.1, report and results are in `uvm/doc/`.
+- RL loop files adapted to the new class names (PR #2, merged as `947a871`): `rst_req`/`rst_n` in the item, 1-cycle reset in the driver, scoreboard clears its model on reset, RL test owns `rl_obs` and `vif`.
+- Re-ran the full regression and bug campaign on `947a871` with Questa 2021.2_1 (Linux).
+
+### Commands executed
+```bash
+cd uvm/fifo_uvm
+make regress     # 4 tests x 5 seeds
+make bugs        # 5 bugs x 4 tests x 5 seeds
+```
+
+### Observations
+- Regression: 20/20 PASS. Merged coverage: covergroup 24/24 bins, assertions 10/10, statements 94.44 %, branches 92.30 %, toggles 98.68 %, total 98.17 %. Same as 2026-11-05.
+- Bug report identical to `uvm/doc/results/bug_report.txt`: 5/5 detected; `BUG_READ_WHEN_EMPTY` only by the random test in 3/5 seeds.
+- RL loop, ucb1, 100 tests, N = 40, seed 1: CSV identical to the previous `main` in every metric column except `cycles` (+1 per test). Fixed arms A5/A9 (mid-test resets): 0 errors, 0 mismatches.
+- Review against the study documents found ISSUE-010…ISSUE-014 (see §D1).
+
+### Evidence
+- `uvm/fifo_uvm/out/regress/summary.txt`, `uvm/fifo_uvm/out/bugs/bug_report.txt` (local)
+- `uvm/doc/results/` (tracked)
+
+### Open issues and next action
+- ISSUE-009/010: bring the scoreboard to the old plan §3.8 rules → Blue.
+- ISSUE-012: decide which document is the FIFO plan of record before G0 → team.
+- ISSUE-013: re-run RB-01 on the new testbench, one simulator version → Đức.
+
+---
+
 # B. Experiment registry and per-run log
 
 ## B1. Experiment registry
@@ -225,7 +333,8 @@ One entry per planned campaign, not per simulator invocation.
 | Experiment ID | Objective | DUT | Method | Seed set | Budget | Protocol version | Status |
 |---|---|---|---|---|---|---|---|
 | `EXP-000` | Pre-registration freeze (G0) | Each DUT | — | — | — | v0.2 | Not started |
-| `EXP-001` | Validate clean FIFO (directed T01–T14) | FIFO clean | Directed UVM | `[list]` | `[budget]` | v0.2 | Not started |
+| `EXP-001` | Validate clean FIFO (handwritten suite; plan T01–T10, 4 tests implemented) | FIFO clean | Directed + constrained-random UVM | seeds 1–5 | 4 tests × 5 seeds | FIFO plan v1.1 (`uvm/doc`) | Done 2026-11-05; re-run 2026-11-16 (20/20 PASS) |
+| `EXP-001b` | Testbench validation by bug injection | FIFO + 5 bug switches | Same suite | seeds 1–5 | 5 bugs × 4 tests × 5 seeds | FIFO plan v1.1 §9.3 | Done; 5/5 detected |
 | `EXP-002` | Tier-A screening S1–S7 | Tier-A hosts | Directed + synthesis | — | — | v0.2 | Not started |
 | `EXP-003` | Tier-B generation + acceptance | FIFO + hosts | Generator | `[gen seeds]` | — | v0.2 | Not started |
 | `EXP-004` | Rarity calibration | All Trojans | B0 | `[list]` | Per protocol §6 | v0.2 | Not started |
@@ -326,7 +435,12 @@ Status: **accepted** = required by advisor or already agreed; **proposed** = awa
 | ISSUE-001 | 2026-09-19 | Blocker | UVM | `fifo_if.sv`: `endclocking: mon_cb_cb` does not match block name `mon_cb`; compile error | Resolved (2026-10-26: `endclocking: mon_cb` in `2a4f920`) |
 | ISSUE-002 | 2026-09-19 | High | UVM | `fifo_if.sv`: `mon_cb` lacks `rst_n`, so the monitor/scoreboard cannot see reset; `rst_n` driven outside the clocking block (race risk) | Resolved (2026-10-26: `rst_n` in `mon_cb` and `drv_cb` in `2a4f920`) |
 | ISSUE-008 | 2026-10-26 | High | Assertion | `fifo_sva.sv` is not bound in `fifo_top.sv`, so no assertion runs; line 43 `error(` should be `$error(`; line 60 `full \|=> $stable(wr_ptr) \|\| !full` can pass vacuously (see ISSUE-004) | Resolved for `tb_top` (2026-11-16): `fifo_assertions.sv` bound via `bind sync_fifo`; `fifo_sva.sv` kept but superseded. `fifo_top` (RL) still unbound |
-| ISSUE-009 | 2026-11-16 | Medium | Scoreboard | The handwritten scoreboard checks data only: no `full`/`empty` check, no `data_out` hold check, no leftover-item check (plan O1). RL CSV columns `det_sb_flag`/`det_sb_hold` are written as `NA` until these checks exist | Open |
+| ISSUE-009 | 2026-11-16 | Medium | Scoreboard | The handwritten scoreboard checks data only: no `full`/`empty` check, no `data_out` hold check, no leftover-item check (plan O1). RL CSV columns `det_sb_flag`/`det_sb_hold` are written as `NA` until these checks exist | Resolved 2026-11-25: PR #1 scoreboard model reused (1.2 flag, 1.4 hold checks); RL CSV `det_sb_flag`/`det_sb_hold` filled again. Leftover-item check still open (FIFO plan O1) |
+| ISSUE-010 | 2026-11-16 | High | Scoreboard | `fifo_scoreboard` gates reads on the DUT's sampled `empty` (`rd_en && !item.empty`) instead of its own occupancy. Old plan §3.8 requires the model never to trust DUT flags. A Trojan that corrupts `empty` can therefore steer the model | Resolved 2026-11-25: reads and writes accepted from the model's own occupancy |
+| ISSUE-011 | 2026-11-16 | High | Assertion | A02–A06 and A08–A10 in `fifo_assertions.sv` read internal signals (`count`, `wr_ptr`, `rd_ptr`). Scope §7 and old plan §0 count these as white-box (`DET-INT`, GB only). Only A01 and A07 are interface-only. Internal names may also differ in Trojan RTL | Open |
+| ISSUE-012 | 2026-11-16 | Medium | Protocol | Two different documents are labelled "FIFO plan v1.1": the study plan (`89ae1f3`, deleted from `main`: §0 role, §3.7 knobs, §3.8 scoreboard rules, §4.5 rare-bin register) and the executed handwritten plan (`uvm/doc/`). Scope §8, DEC-006 and ISSUE-003 cite sections that exist only in the old one | Open |
+| ISSUE-013 | 2026-11-16 | Medium | Protocol | Baseline π₀ changed: the new `fifo_seq_item` adds `c_valid_op` (80 % of cycles have `wr_en` or `rd_en`), so A0 and `fifo_test_random` no longer have the distribution used for the 2026-10-24 RB-01 runs. Those runs also used Questa 2024.1, the regression used 2021.2_1 | Open |
+| ISSUE-014 | 2026-11-16 | Medium | UVM | Two tops: `tb_top` (SVA bound, 1 ms watchdog, always dumps VCD) and `fifo_top` (no SVA, 100 ms watchdog, `+NODUMP`). RL and handwritten runs therefore use different detector sets | Open |
 | ISSUE-003 | 2026-09-25 | High | Scoreboard | FIFO plan R5 says "process write before read"; wrong if the scoreboard does not gate by flags (empty + both enables → RTL writes only). Rule must gate by sampled `full`/`empty` | Fixed in FIFO plan v1.1 §3.8 |
 | ISSUE-004 | 2026-09-25 | Medium | Assertion | A04/A05 consequents `$stable(ptr) \|\| !flag` can pass vacuously when a read clears the flag; use `full \|=> $stable(wr_ptr)` and `empty \|=> $stable(rd_ptr)` | Fixed in FIFO plan v1.1 §5 |
 | ISSUE-007 | 2026-09-25 | Medium | Assertion | A01 `$rose(rst_n) \|=> (empty && !full)` fails falsely if a write occurs in the reset-release cycle; use `\|->` | Fixed in FIFO plan v1.1 §5 |
