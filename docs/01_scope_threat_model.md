@@ -1,7 +1,7 @@
 # Scope and Threat Model: RL-UVM Hardware Trojan Study
 
-> **Document status:** Draft v0.2 (revised after advisor review of 2026-09-23)  
-> **Last updated:** 2026-09-25  
+> **Document status:** Draft v0.3 (evaluation logic and method options added; items marked *proposed* await the decisions in lab notebook §1.2 and G0)  
+> **Last updated:** 2026-11-25  
 > **Project phase:** Baseline setup → pre-registration (gate G0)  
 > **Primary DUT:** RTL synchronous FIFO, used as MVP pipeline host only (multi-DUT suite in §3)  
 > **Owner:** `[Name]`  
@@ -11,6 +11,7 @@
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-25 | v0.3 | RQ0 on the handwritten suite added as a proposal (§1.2). Success criteria tied to the interpretation categories of protocol §13.3 (§1.3). FIFO RTL revision filled (§4.1); rare-bin reference fixed (§8). Baseline B-H proposed (§10). Metrics: amplification factor, budget-to-50 % speed-up, cost of brute force, activations per CPU-hour (§11). New §16: methodology and architecture options to strengthen the results, with a recommended Q2 and Q1 package. |
 | 2026-09-25 | v0.2 | Rewritten after advisor review (2026-09-23). FIFO demoted to MVP host. Added two-tier benchmark suite with published screening (§3), informed by Krieg (ICCAD 2023). Replaced FIFO-only profiles A0–A6 with a DUT-agnostic knob action space (§9). Added empirical rarity definition and rarity sweep (§5.3). Added pre-registration and role separation against rare-bin oracle leakage (§6.5). Added delayed/latent/flag/DoS payload classes so activation and detection separate (§5.2). Added black-box vs gray-box observability settings (§6). Gates are now G0–G4 (§13). Added publication-tier requirements (§14). |
 | 2026-09-17 | v0.1 | Initial draft. |
 
@@ -39,22 +40,26 @@
 
 | ID | Question | Primary evidence |
 |---|---|---|
+| RQ0 *(proposed)* | Does a coverage-closed, expert-written UVM suite activate rare-trigger Trojans, and how does the RL policy compare with it under its native and a matched budget? | Activation per level for B-H(native) and B-H(matched) (protocol §7.1); coverage of B-H; cost of brute force (protocol §12.1) |
 | RQ1 | Under equal budget, does the policy activate rarer triggers than constrained-random, knob-space black-box search, and coverage-guided fuzzing? | Activation frontier (§11) and censored TTA across the rarity sweep |
 | RQ2 | Which non-oracular feedback signals carry information about trigger reachability: spec coverage only (black-box) or automatically extracted RTL-structure probes (gray-box)? | Reward ablations; offline correlation on dev split only |
 | RQ3 | For delayed, latent and masked payloads, how often and how late are activated Trojans detected? | Detection rate given activation; latency TTD − TTA; masking rate |
 | RQ4 | Does one agent and one knob interface work on ≥3 DUTs without per-DUT action design? | Results per DUT; logged per-DUT engineering effort |
 | RQ5 | What is the total cost, including agent and communication overhead? | Cycles, wall-clock, overhead breakdown |
 
+RQ0 supplies the **necessity** argument (protocol §21, claim N): the problem is real for normal verification practice. It is not the main claim, because a handwritten suite is not designed to find Trojans and, at matched budget, its random part equals B0. RQ1 supplies the **superiority** argument.
+
 **Pre-registered negative-result path.** If the G2 pilot (§13) shows no activation advantage and no reward–activation correlation, the paper claim changes to a characterization study: *when does adaptive stimulus help against rare RTL triggers, and when does it not?* This decision rule is fixed before the pilot runs.
 
 ### 1.3 Success criteria
 
-The method is promising only if, under the frozen protocol, it:
+Results are read with the categories of protocol §13.3 and the scenarios of protocol §22. In short:
 
-- shifts the activation frontier toward rarer triggers, or reduces restricted-mean TTA, versus every baseline in the tier being claimed (§10);
-- does so on at least three DUTs and on held-out Trojans (test split);
-- keeps clean-DUT false-positive rate within the pre-registered bound;
-- remains better after agent and communication overhead is counted.
+- **Claimable (main result):** robust or supported superiority (frontier shift ≥ 0.5 decade, about 3.2×, proposed SESOI) versus **every** baseline of the claimed tier, on the test split, on ≥ 3 DUTs including held-out Trojans; clean-DUT FPR within the pre-registered bound; still better per CPU-hour (H4).
+- **Narrower claim:** superiority with a qualifier from protocol §13.4, for example only versus B0/B1, only one trigger class, only Tier-B Trojans or only the GB setting. The claim is restricted accordingly.
+- **Not a claim:** "real but small", "promising, underpowered" and "inconclusive" results; anything from the dev split, the FIFO alone or pseudo-targets.
+- **Negative result:** equivalence with B1 within ±SESOI (TOST). This is publishable through the characterization path in §1.2, not a failure of the study.
+- **Invalid:** any condition in protocol §13.5 (leakage, unequal conditions, benchmark defects, detector validity, reporting). No claim until rerun.
 
 ---
 
@@ -140,7 +145,7 @@ The FIFO is the pipeline MVP and a Tier-B host. It is not standalone evidence. G
 | Reset | Synchronous, active-low `rst_n` |
 | Inputs | `clk`, `rst_n`, `wr_en`, `rd_en`, `data_in[7:0]` |
 | Outputs | `data_out[7:0]` (registered, 1-cycle latency), `full`, `empty` (combinational from `count`) |
-| Clean RTL revision | `[path + commit]` |
+| Clean RTL revision | `rtl/sync_fifo_clean.sv` @ `43cbc4f` (same RTL with bug switches: `rtl/sync_fifo.sv`) |
 
 ### 4.2 Other DUTs
 
@@ -297,7 +302,7 @@ An HT is **activated** when the oracle shows the trigger became true. It is **de
 ## 8. Coverage model and rare bins
 
 - Functional coverage categories are unchanged from v0.1 (basic operation, boundaries, concurrency, transitions, reset interactions, data patterns).
-- Rare-bins are **spec-derived only** and frozen at G0 (§6.5). The FIFO candidate list is in `FIFO_VERIFICATION_PLAN.md` §4.5.
+- Rare-bins are **spec-derived only** and frozen at G0 (§6.5). The FIFO candidate list is in the old FIFO plan (`89ae1f3`, §4.5, RB-01…RB-13); it is to be moved into the FIFO plan of record (v1.3, lab notebook ISSUE-012).
 - A rare-bin enters the metric denominator only after a blue-written directed test from the spec shows it is reachable.
 - Rare coverage is a proxy for exploration. It is not evidence of activation or security.
 
@@ -359,6 +364,7 @@ r_t^{\mathrm{GB}} = r_t + \delta\,\Delta S_t
 
 | ID | Baseline | Tier needed |
 |---|---|---|
+| B-H *(proposed)* | Handwritten verification suite (directed + constrained-random), frozen before any Trojan exists; native and matched budget (protocol §7.1) | Q2 (necessity argument) |
 | B0 | Constrained-random with frozen π₀ | Q2 |
 | B1 | Uniform random knob selection | Q2 |
 | B2 | Knob-space black-box optimizer on coverage (e.g. hill-climbing or evolutionary search) | Q2 |
@@ -377,9 +383,11 @@ All methods share the same DUTs, detectors, coverage, seeds, and budget in cycle
 | Activation | Activation rate at budget | Fraction of runs activating within B |
 | Activation | **Activation frontier** | Rarity p at which a method's fitted activation rate crosses 50% within B (log₁₀ scale); compared across methods |
 | Activation | Censored TTA; restricted-mean TTA (RMST) | Effort to first activation, handling no-event runs correctly |
+| Activation | **Amplification factor k**; budget-to-50 % speed-up | "The method makes the trigger behave as if k× more frequent"; how much less budget it needs (protocol §12.1) |
+| Necessity | Cost of brute force B95 ≈ 3/p tests, in CPU-hours | Why more random simulation is not an answer at low p |
 | Detection | Detection rate given activation; detection latency TTD − TTA; masking rate | Per payload class |
 | Exploration | Functional and rare-bin coverage (reachable denominators) | Proxy only |
-| Cost | Cycles, tests, wall-clock; agent and IPC overhead | Practicality |
+| Cost | Cycles, tests, wall-clock; agent and IPC overhead; **activations per CPU-hour** | Practicality (H4) |
 | Reliability | Clean-DUT FPR | Mandatory control |
 | Generality | Per-DUT results; per-DUT engineering effort | RQ4 |
 | Robustness | Per-seed points, CIs, effect sizes | Stability |
@@ -445,3 +453,67 @@ No-event runs are right-censored. They are never assigned an invented TTA or TTD
 | BB primary, GB secondary | | | | |
 | G2 pilot decision rule | | | | |
 | Baseline set for Q2 (B0–B3) | | | | |
+| Evaluation thresholds (SESOI 0.5 decade, RMST ratio 0.67, H4 ratio 2) and interpretation categories | | | | Protocol v0.3 §2, §13.3; freeze at G0 |
+| Baseline B-H and RQ0 | | | | Depends on the four open decisions (lab notebook §1.2) |
+
+---
+
+## 16. Methodology and architecture options to strengthen the results
+
+Options are grouped by what they improve. "Validity risk" is the way an option can make results invalid or harder to defend. Anything adopted must be chosen on dev data or pseudo-targets and frozen at G0.
+
+### 16.1 Prerequisites (without these, no result is defensible)
+
+| ID | Option | What it buys | Status |
+|---|---|---|---|
+| P-1 | One simulation top and one frozen checker set for every method (scoreboard data/flag/hold, SVA, coverage) | Equal conditions (protocol §13.5) | Open: lab notebook ISSUE-014 (RL flow has no SVA) |
+| P-2 | SVA split into interface-only (BB) and internal (GB) groups | BB claims use BB detectors only | Open: ISSUE-011 |
+| P-3 | Oracle isolation: the oracle is a bound module writing to its own file; CI grep audit (protocol §15) | Non-oracularity can be shown, not just stated | Not started |
+| P-4 | One simulator version and one configuration source for N, B, seeds; provenance columns (`git_commit`, `simulator_version`, `prereg_hash`) in every CSV row | Reproducibility; no mixing of RNG streams across versions | Open: ISSUE-013, RL-08, RL-09 |
+| P-5 | Tuning-budget parity: every method (including B2, B3) gets the same hyperparameter-tuning budget on dev | Prevents straw-man baselines (protocol §21, S2) | Not started |
+
+### 16.2 Feedback signal (reward and state)
+
+| ID | Option | What it buys | Cost | Validity risk | Tier |
+|---|---|---|---|---|---|
+| R-1 | Count-based novelty on spec bins: reward Σ 1/√hits(b) for bins hit in the test | Dense reward; the 2026-10-24 loop check showed binary and first-hit coverage rewards are too sparse (new bins in only 11–17 of 200 tests) | Low | Low (spec-only) | Q2 |
+| R-2 | Rare-bin term ΔR over a spec-only rare-bin register frozen at G0 | Pushes toward unusual interface behaviour | Low | Leakage if written after Trojan exposure; ablation A-noR mandatory | Q2 |
+| R-3 | Detector term D (any scoreboard/SVA event) | Rewards visible misbehaviour | Low | Near zero on clean dev hosts; must not dominate | Q2 |
+| R-4 | Reward normalized to [0, 1] per test, components logged separately | UCB and Thompson sampling assume bounded rewards; ablations need components | Low | None | Q2 |
+| R-5 | GB structural progress ΔS: Hamming distance to compared constants, new counter maxima, FSM state/transition novelty, from an automatic RTL extractor (§6.2) | Candidate mechanism contribution (lit review C3); signal toward counter, sequence and compare triggers | High | Must differ from VGF value coverage; extractor frozen and Trojan-agnostic | Q1 |
+
+### 16.3 Policy
+
+| ID | Option | What it buys | Cost | Validity risk | Tier |
+|---|---|---|---|---|---|
+| A-1 | Thompson sampling (Beta–Bernoulli for binary, Gaussian for graded reward) | Usually explores better than UCB1 when rewards are sparse; UCB1 with c = 1 stayed near round-robin in the loop check | Low (SV-native) | None | Q2 |
+| A-2 | Discounted or sliding-window UCB (Garivier and Moulines, ALT 2011) | Handles non-stationary rewards: novelty rewards shrink as bins saturate | Low | Window/discount chosen on dev only | Q2 |
+| A-3 | Contextual bandit, e.g. LinUCB (Li et al., WWW 2010), context = coverage and rare-bin summary | Matches M1 as named in protocol §8; choice depends on what is already covered | Medium | Context features spec-only | Q2/Q1 |
+| A-4 | Factored bandit: one bandit per knob over the 1,080-point grid instead of 10 presets | Larger action space without enumeration; answers "hand-picked presets" criticism | Medium | Knob interactions lost; compare with presets on dev | Q1 |
+| A-5 | Episodic MDP without reset between segments; tabular Q-learning (M2) | Needed when a trigger accumulates across segments (counters, sequences): with a reset at every test start, a counter trigger whose threshold exceeds what one test can reach is unreachable unless it ignores reset | Medium | Reset policy is part of π₀ and the rarity definition; must be identical across methods and frozen at G0 | Q1 |
+| A-6 | State archive with simulator checkpoint/restore, Go-Explore style (Ecoffet et al., *Nature* 2021) | Returns to rare interface states and explores from there; targets deep sequential triggers | High | Restored cycles must be charged to the budget; baselines need the same facility or the comparison is unequal | Q1 (optional) |
+
+Deep RL stays out of scope (§2) unless G2 shows a need.
+
+### 16.4 Evaluation and statistics
+
+| ID | Option | What it buys | Cost |
+|---|---|---|---|
+| E-1 | Common random numbers: separate RNG streams for the agent and for stimulus (RL-11); same stimulus seed list across methods | Lower variance of paired comparisons, so more power for the same compute | Low |
+| E-2 | Power by simulation on G2 pilot data (protocol §13.2) | Seed and Trojan counts justified before the main campaign | Low |
+| E-3 | Hierarchical bootstrap (Trojans, then seeds) and mixed-effects logistic model (protocol §13) | Generalization over Trojans, not only seeds | Medium |
+| E-4 | Parallel campaign runner (one simulator process per seed) and measured cost per test (protocol §17) | Enough runs for 30 seeds where cheap | Medium |
+| E-5 | Formal tools (bounded model checking) only for validation: trigger reachability (S5) and pre-trigger equivalence (Tier-B acceptance) | Removes unreachable or defective Trojans before campaigns | Medium; not a budget-comparable baseline |
+
+### 16.5 Agent placement
+
+| ID | Option | When |
+|---|---|---|
+| X-1 | Agent in SystemVerilog inside the simulation (current) | Bandits and tabular methods: no IPC overhead, reproducible with `-sv_seed` |
+| X-2 | Agent in Python over DPI-C or a socket (as in Gadde et al., SMACD 2024) | Only if a method needs libraries not practical in SV; IPC overhead measured and reported (RQ5) |
+
+### 16.6 Recommended packages
+
+- **Q2 package:** P-1…P-5; R-1, R-2, R-3, R-4; policy chosen on pseudo-targets and dev among UCB1, A-1 and A-2 (one pre-registered as M1), A-3 as an optional second method; E-1, E-2, E-3, E-4; B-H, B0–B3.
+- **Q1 additions:** R-5 (GB mechanism), A-4, A-5, B4, B5; A-6 only if A-5 is insufficient on sequential triggers.
+

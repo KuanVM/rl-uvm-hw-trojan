@@ -1,7 +1,7 @@
 # Literature Review: RL-UVM for Hardware Trojan Activation and Detection
 
-> **Document status:** Draft v0.2 (revised after advisor review of 2026-09-23)  
-> **Last updated:** 2026-09-25  
+> **Document status:** Draft v0.3  
+> **Last updated:** 2026-11-25  
 > **Scope:** RTL + UVM simulation-based pre-silicon verification  
 > **Purpose:** Evidence-based positioning, terminology, gaps, and a testable novelty claim.
 
@@ -9,6 +9,7 @@
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-25 | v0.3 | Added §4.8 (RL algorithms named as method options in scope §16; **not verified**). §7 claim stated in measurable units (decades of p, amplification factor). §9 extended with practical significance, interpretation and cost criteria (protocol v0.3 §12.1, §13). |
 | 2026-09-25 | v0.2 | Expanded from 6 to about 40 works in seven clusters (§4). Identified "Gadde et al." as arXiv:2405.19815 (SMACD 2024). Added benchmark-validity evidence (Krieg, ICCAD 2023). Removed novelty claims now covered by prior work (§6.3). Ranked candidate contributions (§7). Added search protocol and reading queue (§10). Every entry marks what was verified and from which source. |
 | 2026-09-17 | v0.1 | Six supplied papers. |
 
@@ -150,6 +151,19 @@ P2, P3, P5; TROJAN-GUARD (Thorat, Hasan, Ding, Shi, arXiv:2506.17894, 2025; GNN 
 
 ---
 
+### 4.8 RL algorithms named as method options (scope §16)
+
+Added 2026-11-25 from general knowledge to name candidate algorithms. **Not verified in this review**: read each before citing it in a manuscript, and fill missing details only from the source.
+
+| Work | Verified | Used for |
+|---|---|---|
+| Auer, Cesa-Bianchi, Fischer, *Finite-time analysis of the multiarmed bandit problem*, Machine Learning, 2002 | Not verified | UCB1 (already implemented in `rl_bandit.sv`) |
+| Sutton and Barto, *Reinforcement Learning: An Introduction*, 2nd ed., 2018 | Not verified | Background: bandits, ε-greedy, optimistic initial values, Q-learning |
+| Garivier and Moulines, upper-confidence-bound policies for switching (non-stationary) bandits, ALT 2011 | Not verified | Discounted / sliding-window UCB (option A-2) |
+| Li, Chu, Langford, Schapire, contextual-bandit approach to news recommendation (LinUCB), WWW 2010 | Not verified | Contextual bandit (option A-3) |
+| Ecoffet et al., *First return, then explore* (Go-Explore), Nature, 2021 | Not verified | State archive with return-then-explore (option A-6) |
+| Thompson, 1933 (Thompson sampling) | Not verified | Option A-1 |
+
 ## 5. Cross-paper metric map
 
 | Metric family | Static classifiers | Gate-level RL | Fuzzing / CDG | This project |
@@ -219,7 +233,7 @@ No work found so far simultaneously:
 
 > Under a pre-registered, non-oracular protocol, a transaction-level RL policy over DUT-agnostic UVM knobs activates sequential-trigger RTL Trojans at rarities X to Y orders of magnitude beyond constrained-random, knob-space black-box search and coverage-guided fuzzing, on screened third-party and generated Trojans across ≥3 DUTs, and detects delayed or latent payloads with latency Z.
 
-X, Y and Z are placeholders until data exist.
+X, Y and Z are placeholders until data exist. They are reported as decades of p (frontier shift) with the equivalent amplification factor (protocol §12.1), and the claim is made only if the result falls in a superiority category of protocol §13.3 (SESOI proposed at 0.5 decade).
 
 ---
 
@@ -242,6 +256,10 @@ X, Y and Z are placeholders until data exist.
 | Statistical validity | ≥10 seeds, per-seed data, CIs, effect sizes, censoring |
 | Generalization | Dev/test split; held-out trigger class; ≥3 DUTs |
 | Reproducibility | Versioned configs, logs, scripts, screening table |
+| Practical significance | Effect compared with a pre-registered SESOI, not only with 0 (protocol §2, §13.1) |
+| Interpretation | Every comparison assigned one category of protocol §13.3; qualifiers §13.4; invalidating conditions §13.5 |
+| Cost | Activations per CPU-hour including agent overhead; cost of brute force B95 (protocol §12.1) |
+| Necessity | Coverage-closed conventional suite fails at low p (protocol §21, claim N), not argued from B0 alone |
 
 ---
 
