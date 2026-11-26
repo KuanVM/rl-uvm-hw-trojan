@@ -10,6 +10,9 @@
 
 | Date | Change |
 |---|---|
+| 2026-11-26 | Completion criteria added (scope §17); §1.2 row added. |
+| 2026-11-26 | DUT selection DEC-018 (FIFO + RS232 + wb_conmax; BasicRSA backup). ISSUE-006 resolved on Linux. §0 DUTs, §1.4 multi-DUT roadmap added (old §1.4 → §1.5). |
+| 2026-11-26 | Four decisions taken by the team (DEC-014…DEC-017); docs v0.3.1 updated accordingly; §0 owners, §1.2 and §1.4 updated. |
 | 2026-11-25 | §1 aligned with docs v0.3: IDs from scope §16 and protocol §21; PR #3 merged; new rows P-3, E-1, E-2, E-4, B2/B3 baselines, R-5, B-H runs, docs v0.3 PR. |
 | 2026-11-25 | Scope, literature review and protocol moved to v0.3: evaluation method, quantification (amplification factor, B50, cost of brute force), SESOI and interpretation categories, claim–evidence map, method/architecture options (scope §16). §0 versions and §1.2 rows updated. |
 | 2026-11-25 | §1 rewritten as one tracklist (testbench / plan and decisions / RL loop / Trojans) with due dates from the weekly plan. Scoreboard replaced by the PR #1 model (v1.2). ISSUE-009 and ISSUE-010 resolved (leftover-item check still open as FIFO plan O1). §1 updated; daily-log entry 2026-11-25. Weekly plan: `notes/week_2026-11-25_plan.md`. |
@@ -31,13 +34,13 @@
 | UVM version | UVM 1.1d (built into both Questa versions) |
 | OS and host | `[OS, CPU, RAM]` |
 | Python / RL environment | `[N/A until G2]` |
-| DUTs | FIFO (MVP host); Tier-A hosts after screening; Tier-B generated Trojans |
+| DUTs | FIFO (MVP host); RS232 UART and wb_conmax selected (DEC-018, pending screening); BasicRSA backup; Tier-B generated Trojans on all three |
 | FIFO parameters | 8-bit × 32, synchronous active-low reset |
 | Clean FIFO RTL path | `rtl/sync_fifo_clean.sv` (RL flow); `rtl/sync_fifo.sv` = same RTL + 5 `ifdef BUG_*` switches, all off by default (handwritten flow) |
 | Protocol version | `03_experiment_protocol.md` v0.3 (2026-11-25) |
 | Scope version | `01_scope_threat_model.md` v0.3 (2026-11-25); literature review v0.3 |
 | Dataset / results location | Handwritten testbench: `uvm/doc/results/`, `uvm/doc/report/` (tracked). RL loop: `results/rl/` (local, not tracked) |
-| Blue owner / Red owner | `[name]` / `[name]` |
+| Blue owner / Red owner | Quân (spec, handwritten suites, checkers), Minh Đức (knobs, agent, rewards) / third person `[name TBD]` (DEC-017) |
 
 ## 1. Current study status
 
@@ -69,17 +72,20 @@
 |---|---|---|---|---|
 | Docs v0.3: evaluation method, quantification, interpretation rules, claim–evidence map, method options | Quân (drafted with Claude) | Drafted 2026-11-25; **commit via PR** (W-11) | 2026-11-26 | Scope §1.3, §16; protocol §2, §7.1, §12.1, §13, §21, §22; lit review §4.8, §9 |
 | Study the project, RL basics and the new evaluation sections (`notes/00_doc_truoc_tien.md`; `rl_study_guide.md` Module 1–4; Sutton & Barto ch. 2; protocol §12.1, §13.3, §21, §22) | Quân | Part 1–4 of `00_doc_truoc_tien.md` read; self-check 1–10 corrected 2026-11-25. Marked done by Quân; self-check 4, 5, 9, 10 not yet redone (optional, before 28/11) | 2026-11-28 | Weekly plan 26–28/11 |
-| Four open decisions: meaning of "RL-written UVM"; role of the handwritten suite (B-H, RQ0); handwritten suites for FIFO only or all DUTs; who is Red | Quân → team + advisor | Open; answers due | 2026-11-28 | `notes/00_doc_truoc_tien.md` §7 |
+| Four open decisions: meaning of "RL-written UVM"; role of the handwritten suite (B-H, RQ0); handwritten suites for FIFO only or all DUTs; who is Red | Quân → team + advisor | Decided by the team 2026-11-26 (DEC-014…DEC-017); send to Đức and the advisor for confirmation | 2026-11-28 (send) | §C1 |
 | Confirm evaluation thresholds and interpretation rules (SESOI 0.5 decade, RMST ratio 0.67, H4 ratio 2; categories §13.3; invalidating conditions §13.5) | Quân + advisor | Proposed in protocol v0.3; send with the four decisions (D-06); freeze at G0 | 2026-11-28 (send) | Protocol §2, §13 |
-| Confirm or remove the proposals in docs v0.3 (RQ0, B-H, H0b, §7.1) according to the decisions | Quân | Blocked by the four decisions (D-01) | 2026-12-03 | Scope §1.2, §10; protocol §2, §7.1, §8 |
-| Record the decisions as DEC-014…DEC-017 | Quân | Blocked (D-02) | 2026-12-03 | §C1 |
-| Tag the handwritten suite as a G0 artifact (`prereg/fifo/handwritten-suite`) | Quân | Blocked by decision 2 + advisor (D-03) | | |
+| Confirm or remove the proposals in docs v0.3 (RQ0, B-H, H0b, §7.1) according to the decisions | Quân | Done 2026-11-26 (D-01): all kept; docs v0.3.1 | 2026-11-26 | Scope §1.2, §6.5, §10; protocol §2, §4, §7.1, §8, §21 |
+| Record the decisions as DEC-014…DEC-017 | Quân | Done 2026-11-26 (D-02) | 2026-11-26 | §C1 |
+| Tag the FIFO handwritten suite as a G0 artifact (`prereg/fifo/handwritten-suite`) | Quân | Blocked by advisor confirmation of DEC-015 (D-03) | | Protocol §4 item 9 |
+| Handwritten suites for DUT 2 and DUT 3 (plan, tests, clean regression), written from the clean host only | Quân | Not started (D-04); needs host choice and a clean host extracted by Red | | DEC-016; scope §6.5 |
+| Effort log for every handwritten suite (hours, LOC); FIFO values labelled as retrospective estimates | Quân | Not started; start with DUT 2 (claim P) | | Protocol §21 |
 | One FIFO plan of record: merge old §0, §3.7, §3.8, §4.5 (`89ae1f3`) into FIFO plan v1.3 (ISSUE-012) | Quân | Not started (W-10) | 2026-12-02 | |
 | FIFO spec decisions + reference-model rules | Quân | Implemented in scoreboard v1.2; to be written into plan v1.3 (ISSUE-003, W-10) | 2026-12-02 | old plan `89ae1f3` §3.8 |
-| Assign Blue / Red owners | Team + advisor | Open (D-05, DEC-008) | 2026-12-04 | |
+| Assign Blue / Red owners | Team + advisor | Decided (DEC-017): Blue = Quân, Đức; Red = third person. Recruit and onboard Red (D-05, D-07) | 2026-12-04 | Scope §6.5 |
 | Advisor confirmation of DEC-003…DEC-013 | Team | Open | | §C1 |
 | Choose the method package (Q2 / Q1) from scope §16.6 | Quân + Đức | Proposed; decide in the G0 draft | 2026-12-05 (draft) | Scope §16.6 |
 | FIFO pre-registration G0 (coverage, rare-bins, detectors, knobs, π₀, N, B, reward, policy, SESOI and analysis plan) | Quân + Đức | Not started; draft `docs/prereg/fifo_g0_draft.md` planned | 2026-12-05 (draft start) | §H; protocol §4 |
+| Completion criteria (definition of done, levels, stop and fallback rules); fix target venue, submission date and the "no Red by" date with the advisor | Quân + advisor | Defined 2026-11-26 in scope §17; dates and venue `[TBD]` | 2026-11-28 (send) | Scope §17 |
 | Verify the RL algorithm references added to lit review §4.8 before citing | Quân | Not started | before manuscript | Lit review §4.8 |
 | Literature reading queue (Dai et al. HOST 2025 first) | | In progress | | Lit review §10.2 |
 
@@ -98,7 +104,24 @@
 | Baselines **B2** (knob-space black-box optimizer) and **B3** (coverage-guided sequence fuzzer), tuned with the same budget (claim S2) | Unassigned | Not started (RL-13) | before G2 | Scope §10; protocol §8 |
 | **R-5** GB structural-progress extractor (Q1 mechanism) | Unassigned | Not started; Q1 only | after G2 | Scope §6.2, §16.2 |
 
-### 1.4 Trojans and campaigns (after G0)
+### 1.4 Chapter 2: multi-DUT bring-up (DEC-016, DEC-018)
+
+Order: Red joins → clean hosts → spec and handwritten suite per DUT (Blue) → knob annotation and RL hookup → G0 per DUT. Until Red joins, Blue may only work from clean sources that do not ship with Trojan variants.
+
+| Work package | Owner | Status | Due date | Evidence / link |
+|---|---|---|---|---|
+| Select the 3 DUTs | Quân (team) | Done 2026-11-26 (DEC-018); advisor to confirm | 2026-11-28 (send) | Scope §3.6 |
+| Recruit and onboard Red (third person) | Quân | Not started (D-07) | 2026-12-04 | Scope §6.5 |
+| wb_conmax: obtain the clean core from its original public source (not the Trust-Hub package); Red later checks it matches the Trust-Hub host | Quân, then Red | Not started; can start before Red joins | 2026-12-03 | Source to verify |
+| RS232: Red extracts the clean host from the Trust-Hub package, repairs the host defect identically in clean and Trojan versions (S2), publishes the repair diff | Red | Blocked by Red (ISSUE-005) | | Scope §3.3 |
+| Spec decisions + verification plan per DUT (as for the FIFO: features, coverage, assertions, test list) | Quân | Not started; wb_conmax first, RS232 after the clean host arrives | | FIFO plan as template |
+| UVM environment + handwritten suite per DUT; regression; bug injection | Quân | Not started | | DEC-016 |
+| Effort log per DUT (hours, LOC of the handwritten suite and of the knob annotation) | Quân, Đức | Start with wb_conmax | | Claim P; RQ4 |
+| Knob annotation and RL loop hookup per DUT (`k_addr` for wb_conmax) | Đức (proposed) | Not started; after P-1 (one top) | | Scope §9.1 |
+| Clean-host screening S1–S2 and Tier-A Trojan screening S3–S7 | Red | Blocked by Red | | Protocol §5.1 |
+| G0 per DUT | Blue + advisor | Not started; FIFO first | | Protocol §4 |
+
+### 1.5 Trojans and campaigns (after G0)
 
 | Work package | Owner | Status | Due date | Evidence / link |
 |---|---|---|---|---|
@@ -107,7 +130,7 @@
 | Rarity calibration | Red (unassigned) | Not started | | Protocol §6 |
 | G2 pilot (go needs at least the "promising" category of protocol §13.3, dev only) | Blue + Red | Not started | | Protocol §16 |
 | **E-2** Power by simulation on pilot data; fix seed and Trojan counts | Blue | Not started; after G2 | | Protocol §13.2 |
-| B-H(native) and B-H(matched) runs (claim N) *(proposed)* | Blue + Red | Blocked by the decisions and G0 | | Protocol §7.1, §21 |
+| B-H(native) and B-H(matched) runs on every DUT (claim N) | Blue + Red | Blocked by G0 and Red | | Protocol §7.1, §21 |
 | Main campaign (claims S1, S2, G), clean-DUT FPR campaign (claim R), ablations (claim M) | Blue + Red | Not started | | Protocol §14, §21 |
 
 ---
@@ -418,6 +441,11 @@ Status: **accepted** = required by advisor or already agreed; **proposed** = awa
 | DEC-011 | 2026-09-25 | G2 pilot moved early with pre-registered go/pivot rule | Proposed | Advisor §4 table | 01 §13; 03 §16 |
 | DEC-012 | 2026-09-25 | Dev/test split; test evaluated once | Proposed | Leakage via tuning | 01 §9.4; 03 §5.3 |
 | DEC-013 | 2026-09-25 | Drop "DPI-C coverage-to-reward loop" and "design-agnostic RL" as novelty claims | Accepted | Gadde 2024 | 02 §6.3 |
+| DEC-014 | 2026-11-26 | "RL-written UVM" means: the RL policy chooses stimulus (knob vectors) inside the shared testbench; it does not write testbench code. Handwritten vs RL = comparison of stimulus sources with identical checkers | Accepted by team; advisor to confirm | `notes/00_doc_truoc_tien.md` §7 Q1 | 01 §1.2 |
+| DEC-015 | 2026-11-26 | Handwritten suite = reference baseline B-H and motivating experiment (necessity, claim N); main claim stays RL vs B0–B3 across the rarity sweep | Accepted by team; advisor to confirm | §7 Q2; a "handwritten vs RL" main claim would be a straw man | 01 §1.2, §10; 03 §2, §7.1, §8, §21 |
+| DEC-016 | 2026-11-26 | One handwritten suite per DUT (all ≥ 3 DUTs), frozen at that DUT's G0; Blue writes it from the clean host only | Accepted by team; advisor to confirm | §7 Q3; FIFO-only would be a single-DUT case study (DEC-001) | 01 §6.5, §10; 03 §4, §7.1 |
+| DEC-018 | 2026-11-26 | Multi-DUT set: FIFO + RS232 UART + wb_conmax; BasicRSA backup; memctrl extension. Chosen on host properties and published ratings only | Accepted by team; advisor and Red screening S1–S7 to confirm | Scope §3.6 criteria K1–K6 | 01 §3.2, §3.6, §4.2 |
+| DEC-017 | 2026-11-26 | A third person takes the Red role; Quân and Đức stay Blue | Accepted by team; name and advisor confirmation pending | §7 Q4; DEC-008 role separation | 01 §6.5 |
 
 ## C2. Full decision entry template
 
@@ -458,7 +486,7 @@ Status: **accepted** = required by advisor or already agreed; **proposed** = awa
 | ISSUE-004 | 2026-09-25 | Medium | Assertion | A04/A05 consequents `$stable(ptr) \|\| !flag` can pass vacuously when a read clears the flag; use `full \|=> $stable(wr_ptr)` and `empty \|=> $stable(rd_ptr)` | Fixed in FIFO plan v1.1 §5 |
 | ISSUE-007 | 2026-09-25 | Medium | Assertion | A01 `$rose(rst_n) \|=> (empty && !full)` fails falsely if a write occurs in the reset-release cycle; use `\|->` | Fixed in FIFO plan v1.1 §5 |
 | ISSUE-005 | 2026-09-25 | High | Benchmark | Krieg 2023 reports RS232 RTL host UART cannot send data; clean-DUT regression would fail | Open; screening S2 |
-| ISSUE-006 | 2026-09-25 | Medium | Toolchain | BasicRSA is VHDL; needs a mixed-language licence or exclusion | Open; confirm licence |
+| ISSUE-006 | 2026-09-25 | Medium | Toolchain | BasicRSA is VHDL; needs a mixed-language licence or exclusion | Resolved for Linux (2026-11-26): VHDL entity + SV top compiled and simulated on Questa 2021.2_1. Windows not checked. BasicRSA is the backup host (DEC-018) |
 
 ## D2. Full issue template
 

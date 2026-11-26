@@ -11,6 +11,9 @@
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-26 | v0.3.3 | New §17: completion criteria (definition of done), levels of completion, cases that are not completion, stop and fallback rules. |
+| 2026-11-26 | v0.3.2 | DUT selection for the multi-DUT phase (§3.6, DEC-018): FIFO + RS232 UART + wb_conmax; BasicRSA as backup, memctrl as extension. Mixed-language simulation confirmed on the Linux simulator (ISSUE-006). Status column of §3.2 updated. |
+| 2026-11-26 | v0.3.1 | Team decisions DEC-014…017 applied (advisor confirmation pending): the RL policy chooses stimulus inside the shared testbench (§1.2); B-H and RQ0 adopted as reference baseline and necessity argument (§1.2, §10); one handwritten suite per DUT, frozen at that DUT's G0 (§6.5); a third person takes the Red role (§6.5). |
 | 2026-11-25 | v0.3 | RQ0 on the handwritten suite added as a proposal (§1.2). Success criteria tied to the interpretation categories of protocol §13.3 (§1.3). FIFO RTL revision filled (§4.1); rare-bin reference fixed (§8). Baseline B-H proposed (§10). Metrics: amplification factor, budget-to-50 % speed-up, cost of brute force, activations per CPU-hour (§11). New §16: methodology and architecture options to strengthen the results, with a recommended Q2 and Q1 package. |
 | 2026-09-25 | v0.2 | Rewritten after advisor review (2026-09-23). FIFO demoted to MVP host. Added two-tier benchmark suite with published screening (§3), informed by Krieg (ICCAD 2023). Replaced FIFO-only profiles A0–A6 with a DUT-agnostic knob action space (§9). Added empirical rarity definition and rarity sweep (§5.3). Added pre-registration and role separation against rare-bin oracle leakage (§6.5). Added delayed/latent/flag/DoS payload classes so activation and detection separate (§5.2). Added black-box vs gray-box observability settings (§6). Gates are now G0–G4 (§13). Added publication-tier requirements (§14). |
 | 2026-09-17 | v0.1 | Initial draft. |
@@ -40,12 +43,14 @@
 
 | ID | Question | Primary evidence |
 |---|---|---|
-| RQ0 *(proposed)* | Does a coverage-closed, expert-written UVM suite activate rare-trigger Trojans, and how does the RL policy compare with it under its native and a matched budget? | Activation per level for B-H(native) and B-H(matched) (protocol §7.1); coverage of B-H; cost of brute force (protocol §12.1) |
+| RQ0 (DEC-015) | Does a coverage-closed, expert-written UVM suite activate rare-trigger Trojans, and how does the RL policy compare with it under its native and a matched budget? | Activation per level for B-H(native) and B-H(matched) (protocol §7.1); coverage of B-H; cost of brute force (protocol §12.1) |
 | RQ1 | Under equal budget, does the policy activate rarer triggers than constrained-random, knob-space black-box search, and coverage-guided fuzzing? | Activation frontier (§11) and censored TTA across the rarity sweep |
 | RQ2 | Which non-oracular feedback signals carry information about trigger reachability: spec coverage only (black-box) or automatically extracted RTL-structure probes (gray-box)? | Reward ablations; offline correlation on dev split only |
 | RQ3 | For delayed, latent and masked payloads, how often and how late are activated Trojans detected? | Detection rate given activation; latency TTD − TTA; masking rate |
 | RQ4 | Does one agent and one knob interface work on ≥3 DUTs without per-DUT action design? | Results per DUT; logged per-DUT engineering effort |
 | RQ5 | What is the total cost, including agent and communication overhead? | Cycles, wall-clock, overhead breakdown |
+
+**What "RL" means here (DEC-014).** The RL policy chooses stimulus (knob vectors for the sequence library) inside the same UVM testbench as every other method. It does not write testbench code. Comparisons between handwritten and RL-driven verification are therefore comparisons of stimulus sources with identical checkers.
 
 RQ0 supplies the **necessity** argument (protocol §21, claim N): the problem is real for normal verification practice. It is not the main claim, because a handwritten suite is not designed to find Trojans and, at matched budget, its random part equals B0. RQ1 supplies the **superiority** argument.
 
@@ -94,14 +99,14 @@ The "prior finding" column records Krieg's published classification, not our res
 
 | Design | Trojans | HDL | Prior finding (Krieg, ICCAD 2023) | Intended use | Status |
 |---|---|---|---|---|---|
-| RS232 (UART) | T100–T901 (RTL) | Verilog | Host UART does not meet its own spec (cannot send data); malicious parts reported stealthy and persistent (T200 is rated non-malicious in Krieg's table) | Use only after repairing the host identically in clean and Trojan versions; publish the repair diff | Candidate |
+| RS232 (UART) | T100–T901 (RTL) | Verilog | Host UART does not meet its own spec (cannot send data); malicious parts reported stealthy and persistent (T200 is rated non-malicious in Krieg's table) | Use only after repairing the host identically in clean and Trojan versions; publish the repair diff | **Selected (DEC-018)**, pending S1–S7 |
 | RS232 | T2100–T2400 | Verilog | Undocumented extra malicious behaviour | Include only if the extra behaviour is documented by us | Candidate, low priority |
 | RS232 | T1000–T2000 | Tech netlist | Behaviour could not be verified | Exclude (not RTL) | Excluded |
-| wb_conmax | T300 | Verilog | Rated effective | Candidate; confirm it is the RTL variant | Candidate |
+| wb_conmax | T300 | Verilog | Rated effective | Candidate; confirm it is the RTL variant | **Selected (DEC-018)**, pending S1–S7 |
 | wb_conmax | T100 | Verilog | Trigger not satisfiable with a SAT solver | Exclude unless we prove reachability | Excluded pending proof |
-| BasicRSA | T100 | VHDL | Rated effective | Candidate; needs mixed-language simulation | Candidate |
+| BasicRSA | T100 | VHDL | Rated effective | Candidate; mixed-language simulation works on the Linux simulator (checked 2026-11-26) | Backup (DEC-018) |
 | BasicRSA | T300, T400 | VHDL | Correct, malicious, persistent; not stealthy | Candidate with stealth caveat | Candidate |
-| memctrl | T100 | Verilog | Rated effective; combined hardware/software attack | Candidate; check stimulus requirements | Candidate |
+| memctrl | T100 | Verilog | Rated effective; combined hardware/software attack | Candidate; check stimulus requirements | Extension (DEC-018) |
 | PIC16F84 | T100–T400 | Verilog | Counter trigger built from level-sensitive logic; trigger behaviour disappears after synthesis | RTL-simulation-only secondary set, flagged in every table | Secondary |
 | AES | T2300–T2800 | Verilog | Payload XORs ciphertext LSB (functional) but triggers are weak or controlled by an external asynchronous reset | Possible low-rarity controls only | Candidate control |
 | AES | all others | Verilog | Ineffective (see §3.1) | Exclude from main metrics | Excluded |
@@ -130,6 +135,42 @@ The "prior finding" column records Krieg's published classification, not our res
 
 The FIFO is the pipeline MVP and a Tier-B host. It is not standalone evidence. Gadde et al. (SMACD 2024) report that random and RL stimulus both closed FIFO code coverage in about 22–23 stimuli. FIFO coverage closure is therefore not an interesting RL target; the FIFO's value is as a host for Trojans with controlled rarity.
 
+### 3.6 DUT selection for the multi-DUT phase (DEC-018)
+
+**Rule used.** Blue chose hosts using only host-level properties and the published per-design ratings already recorded in the knowledge-exposure log (§I of the lab notebook: Krieg 2023). No Trojan trigger or payload detail was used. Inclusion of each Trojan is decided later by Red through screening S1–S7.
+
+**Criteria.**
+
+| ID | Criterion | Why |
+|---|---|---|
+| K1 | Tier-A validity: at least one Trojan rated effective, or a host defect that can be repaired identically in clean and Trojan versions | Third-party evidence (Q1 requirement, §14) |
+| K2 | Payload observable at the functional interface | Threat model §5, detectors §7 |
+| K3 | Fits a transaction-level knob interface and adds a **different interface class** | RQ4: one agent and one knob interface across DUTs |
+| K4 | Cost of a handwritten suite (spec available, size, agent complexity) | DEC-016: one handwritten suite per DUT |
+| K5 | Simulator support | Toolchain risk |
+| K6 | Usable as a Tier-B host for generated Trojans | Rarity sweep needs ≥ 3 hosts (§3.4) |
+
+**Assessment** (++ strong, + adequate, − weak, −− blocking).
+
+| Host | K1 | K2 | K3 interface class | K4 | K5 | K6 | Main risk |
+|---|---|---|---|---|---|---|---|
+| FIFO (in-house) | n/a (Tier-B only) | ++ | Storage / stream | ++ (done) | ++ | ++ | Not standalone evidence (DEC-001) |
+| RS232 UART | ++ several RTL Trojans after host repair | + | Serial protocol with timing | + small, simple spec | ++ Verilog | ++ | Host repair (ISSUE-005); repair diff must be published |
+| wb_conmax | + one effective RTL Trojan (T300) | + | Bus interconnect, addressed, multi-master | − larger: Wishbone master and slave agents | ++ Verilog | ++ | Only one Tier-A Trojan; Tier-B Trojans carry the rarity sweep on this host |
+| BasicRSA | ++ T100 effective; T300/T400 correct and persistent but not stealthy | + | Compute, request–response | + small interface | + VHDL (mixed-language works on Linux) | − generated-Trojan tools target Verilog | Wide-data triggers may be unreachable by knob-level stimulus, as for AES (§3.1) |
+| memctrl | + T100 effective | − needs software-level attack | Memory interface | −− memory device models needed | ++ Verilog | + | Combined hardware/software attack outside the stimulus model |
+| PIC16F84 | − trigger disappears after synthesis | + | Processor | −− program-level stimulus | ++ | − | RTL-simulation-only flag on every result |
+
+**Decision (DEC-018, team, 2026-11-26; advisor and Red screening to confirm).**
+
+1. **FIFO**: MVP and Tier-B host (unchanged).
+2. **RS232 UART**: main Tier-A host (most RTL Trojans) and Tier-B host.
+3. **wb_conmax**: Tier-A host (T300) and Tier-B host; adds the addressed-bus interface class, which exercises the `k_addr` knob.
+
+**Backup:** BasicRSA, if wb_conmax or RS232 fails screening S1–S2 or the RS232 repair is not possible. **Extension (Q1, optional):** memctrl.
+
+Together the three selected hosts cover three interface classes (storage, serial protocol, addressed bus), all in Verilog, all usable as Tier-B hosts.
+
 ---
 
 ## 4. DUT specification
@@ -149,7 +190,7 @@ The FIFO is the pipeline MVP and a Tier-B host. It is not standalone evidence. G
 
 ### 4.2 Other DUTs
 
-One table per DUT, same fields, filled after screening S1–S2.
+One table per DUT, same fields, filled after screening S1–S2: RS232 UART and wb_conmax (DEC-018); BasicRSA only if the backup is used.
 
 ### 4.3 Functional reference behaviour
 
@@ -267,7 +308,9 @@ The flag is logged per test after the run. It is never connected to the sequence
 
 - **Blue team** owns the spec, coverage and rare-bins, detectors, knob library, agent, rewards and baselines. Blue never opens Trojan RTL, generator configurations or directed activation tests.
 - **Red team** owns Trojan selection, screening, generation, directed activation tests, oracle logging, rarity calibration, and execution of test-split campaigns.
-- **Freeze order per DUT.** Spec → functional coverage and rare-bins → detectors → knob set → reward formula and analysis plan. Each item is committed, tagged, and its hash recorded in the decision log **before** any Trojan for that DUT is authored, generated or screened.
+- **Assignment (DEC-017, 2026-11-26).** Blue: Quân (spec, handwritten suites, checkers) and Minh Đức (knobs, agent, rewards). Red: a third person, `[name TBD]`, not yet recruited. No Trojan may be selected, generated or screened before Red is in place.
+- **Third-party hosts (DEC-016).** Trust-Hub packages ship clean and Trojan variants together. Red extracts the clean host and gives Blue only that, so Blue can write the handwritten suite without exposure. Any accidental exposure goes into the knowledge-exposure log.
+- **Freeze order per DUT.** Spec → functional coverage and rare-bins → detectors → handwritten verification suite (B-H, DEC-016) → knob set → reward formula and analysis plan. Each item is committed, tagged, and its hash recorded in the decision log **before** any Trojan for that DUT is authored, generated or screened.
 - **Auditor.** The advisor signs the pre-registration record.
 - **Knowledge-exposure log.** Blue records any Trojan detail they read, such as papers describing specific Trust-Hub triggers. Trojans exposed this way are flagged.
 - **Optional technical control.** If the simulator licence supports IEEE 1735 protected IP, Trojan RTL is encrypted so that blue can simulate but not read it. Otherwise red runs all test-split campaigns.
@@ -364,7 +407,7 @@ r_t^{\mathrm{GB}} = r_t + \delta\,\Delta S_t
 
 | ID | Baseline | Tier needed |
 |---|---|---|
-| B-H *(proposed)* | Handwritten verification suite (directed + constrained-random), frozen before any Trojan exists; native and matched budget (protocol §7.1) | Q2 (necessity argument) |
+| B-H (DEC-015, DEC-016) | Handwritten verification suite (directed + constrained-random), one per DUT, frozen before any Trojan for that DUT exists; native and matched budget (protocol §7.1) | Q2 (reference baseline and necessity argument) |
 | B0 | Constrained-random with frozen π₀ | Q2 |
 | B1 | Uniform random knob selection | Q2 |
 | B2 | Knob-space black-box optimizer on coverage (e.g. hill-climbing or evolutionary search) | Q2 |
@@ -454,7 +497,7 @@ No-event runs are right-censored. They are never assigned an invented TTA or TTD
 | G2 pilot decision rule | | | | |
 | Baseline set for Q2 (B0–B3) | | | | |
 | Evaluation thresholds (SESOI 0.5 decade, RMST ratio 0.67, H4 ratio 2) and interpretation categories | | | | Protocol v0.3 §2, §13.3; freeze at G0 |
-| Baseline B-H and RQ0 | | | | Depends on the four open decisions (lab notebook §1.2) |
+| Baseline B-H and RQ0; one handwritten suite per DUT; RL = stimulus choice; third person as Red | Team (Quân) | 2026-11-26 | Team: yes. Advisor: pending | DEC-014…DEC-017 |
 
 ---
 
@@ -516,4 +559,94 @@ Deep RL stays out of scope (§2) unless G2 shows a need.
 
 - **Q2 package:** P-1…P-5; R-1, R-2, R-3, R-4; policy chosen on pseudo-targets and dev among UCB1, A-1 and A-2 (one pre-registered as M1), A-3 as an optional second method; E-1, E-2, E-3, E-4; B-H, B0–B3.
 - **Q1 additions:** R-5 (GB mechanism), A-4, A-5, B4, B5; A-6 only if A-5 is insufficient on sequential triggers.
+
+---
+
+## 17. Completion criteria (definition of done)
+
+### 17.1 What "completed" means
+
+The project is **completed** when the pre-registered study has been run as planned on all selected DUTs, every claim has been assigned an interpretation category (protocol §13.3), and the results and artifacts are published.
+
+Completion does **not** require a positive result. An equivalence or inconclusive outcome, reported through the pre-registered characterization path (§1.2), completes the project. A positive result obtained by breaking the protocol does not.
+
+### 17.2 Completion checklist (all items required)
+
+**A. DUTs and benchmarks**
+
+- [ ] The three DUTs of DEC-018 (or the documented backup) each have: a clean regression that passes; a handwritten suite (B-H) frozen at G0 (DEC-016); a signed G0 record (lab notebook §H).
+- [ ] Tier-A screening table S1–S7 published per Trojan, including host repair diffs (§3.3, protocol §5.1).
+- [ ] Tier-B Trojans pass the acceptance test on every host (§3.4).
+- [ ] Rarity calibrated with intervals or bounds for every Trojan (protocol §6).
+- [ ] Test split contains at least the pre-registered number of Trojans per level per DUT in the informative band (protocol §13.2) `[number fixed at G0]`.
+
+**B. Methods**
+
+- [ ] B-H, B0, B1, B2, B3 implemented with the same frozen checker set and the same tuning budget (scope §16.1, P-1 and P-5).
+- [ ] The RL method(s) frozen at G0; ablations of protocol §14 run.
+- [ ] For a Q1 claim only: B4, B5 and the GB reward (R-5).
+
+**C. Campaigns**
+
+- [ ] Test split run once with the frozen configuration (protocol §5.3), by Red.
+- [ ] At least the pre-registered seeds per cell (≥ 10; 30 where affordable).
+- [ ] Clean-DUT false-positive campaign for every DUT and method.
+- [ ] Every planned run is valid or excluded with a logged reason; infrastructure failures counted separately.
+
+**D. Analysis**
+
+- [ ] Each claim of protocol §21 (N, S1, S2, M, G, D, P, R) has an effect estimate with a 95 % CI and an interpretation category (§13.3), with qualifiers (§13.4).
+- [ ] The matching outcome scenario of protocol §22 is identified and the paper claim is worded accordingly.
+- [ ] No invalidating condition of protocol §13.5 is open; every deviation is logged (protocol §20).
+
+**E. Validity audits**
+
+- [ ] Oracle-leakage audit passed and signed by Red and the advisor (protocol §15).
+- [ ] Knowledge-exposure log reviewed; exposed Trojans flagged in every table.
+- [ ] Pre-registration hashes match the artifacts used in every run.
+
+**F. Reproducibility package**
+
+- [ ] Tagged release of the repository: RTL, testbenches, scripts, configurations, seed lists, simulator version.
+- [ ] Per-seed result data, screening table, repair diffs, calibration data.
+- [ ] A fresh clone reproduces one representative result (one DUT, one method, one Trojan, a few seeds) by following the README.
+
+**G. Deliverables and sign-off**
+
+- [ ] Manuscript submitted to the target venue `[venue and date to fix with the advisor]`.
+- [ ] Lab notebook closed with a final summary and the decision record complete.
+- [ ] Advisor sign-off.
+
+### 17.3 Levels of completion
+
+| Level | Condition (in addition to §17.2) | Paper claim |
+|---|---|---|
+| **Q1 complete** | Robust or supported superiority versus B1–B5 on ≥ 3 DUTs including Tier-A Trojans; GB mechanism shown by ablation | C2 and C3 (lit review §7) |
+| **Q2 complete (target)** | Robust or supported superiority versus B1, B2 and B3 on ≥ 3 DUTs; H4 holds | C2: RL shifts the activation frontier by Δ decades |
+| **Q2 complete, narrower claim** | Superiority with qualifiers (protocol §13.4), e.g. only versus B0/B1 or only for one trigger class | Adaptive or diversity claim as qualified |
+| **Complete, characterization** | Equivalence, "real but small" or inconclusive outcomes, reported in full | When adaptive stimulus helps against rare RTL triggers and when it does not; protocol C1 as contribution |
+
+### 17.4 Not completed
+
+The project is **not** complete if any of these holds, whatever the numbers look like:
+
+- results only on the FIFO, only on the dev split, or only on pseudo-targets (RB-xx);
+- fewer than three DUTs without a documented, advisor-approved scope reduction (§17.5);
+- B2/B3 missing, or baselines tuned with a smaller budget than the RL method;
+- the test split used more than once, or hyperparameters tuned on it;
+- an open invalidating condition (protocol §13.5) or an unsigned oracle audit;
+- results without per-seed data or without a reproducibility package.
+
+### 17.5 Stop and fallback rules
+
+Fixed in advance so that the scope is not changed after seeing results:
+
+| Situation | Rule |
+|---|---|
+| G2 pilot null with the BB reward | Run the GB reward once (protocol §16) |
+| G2 still null | Characterization path (§1.2); continue to completion level "characterization" |
+| A selected DUT fails screening S1–S2 | Replace it with the backup (BasicRSA, DEC-018) |
+| Two DUTs fail and no backup is usable | Scope reduction approved by the advisor; claims restricted to the remaining DUTs and qualified |
+| No Red by the date set with the advisor `[date TBD]` | Tier-B only, generator seeds sealed by the advisor; Tier-A claims dropped |
+| Submission deadline reached | Analyse and report the pre-registered sample as it stands; no unplanned sample extension (protocol §13.2) |
 

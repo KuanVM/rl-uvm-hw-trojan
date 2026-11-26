@@ -10,6 +10,7 @@
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-26 | v0.3.1 | Team decisions DEC-014…017 applied (advisor confirmation pending): B-H adopted (§2 H0b, §7.1, §8, §21), one handwritten suite per DUT added to the G0 package (§4, item 9). |
 | 2026-11-25 | v0.3 | Added smallest effects of interest to the hypotheses (§2); handwritten-suite baseline B-H as a proposal (§7.1, §8); derived quantities: effective rarity, amplification factor, budget-to-50 % speed-up, cost-normalized activation, FPR bound (§12.1); SESOI and equivalence, power and sample size, interpretation categories, qualifiers and invalidating conditions (§13.1–§13.5); claim–evidence map for necessity and superiority (§21); outcome scenarios and what each allows the paper to claim (§22). All thresholds marked *proposed* are frozen only at G0 with advisor sign-off. |
 | 2026-09-25 | v0.2 | Scope widened from a FIFO-only baseline to the full campaign. Added pre-registration package (§4), benchmark screening and generation (§5), rarity calibration (§6), budget rule (§7), method list (§8), extended logging schema (§11), activation frontier and RMST (§12), a statistics plan with power caveats (§13), ablations (§14), oracle audit (§15), G2 pilot decision rule (§16), and a compute worksheet (§17). |
 | — | v0.1 | Baseline-only protocol for the FIFO. |
@@ -33,7 +34,7 @@ RL training runs only after gate G2 (scope §13).
 | ID | Hypothesis | Primary endpoint | Smallest effect of interest (SESOI, proposed) |
 |---|---|---|---|
 | H0 | Baseline characterization: B0 activation follows 1 − (1 − p)^B within calibration error | Observed vs predicted activation per level | Predicted value inside the 95 % interval at every level |
-| H0b | *(Proposed; depends on the decision about B-H.)* A coverage-closed handwritten suite (functional coverage 100 %) does not activate triggers at p ≤ 10⁻⁴ within its native budget | Activation rate of B-H(native) per level | Descriptive; no test (§21, claim N) |
+| H0b | (DEC-015) A coverage-closed handwritten suite (functional coverage 100 %) does not activate triggers at p ≤ 10⁻⁴ within its native budget | Activation rate of B-H(native) per level | Descriptive; no test (§21, claim N) |
 | H1 (primary) | The RL method shifts the activation frontier toward rarer triggers vs each baseline in the claimed tier | Frontier difference Δ in decades of p (95 % CI) | Δ = 0.5 decade (amplification ≈ 3.2×) |
 | H1b | The RL method reduces restricted-mean TTA vs each baseline | RMST ratio method / baseline (95 % CI) | Ratio ≤ 0.67 (≥ 33 % fewer tests) |
 | H2 | The GB reward improves over the BB reward | Frontier and RMST difference, GB − BB | Same as H1, H1b |
@@ -66,6 +67,7 @@ Freeze in this order. Commit each item, tag it `prereg/<dut>/<item>`, and record
 | 6 | Reward formulas (BB, GB) and GB probe extractor version | Blue |
 | 7 | Metrics, statistical tests, G2 decision rule, FPR bound | Blue + advisor |
 | 8 | Dev/test split rule and generator seed lists | Red |
+| 9 | Handwritten verification suite (plan, tests, clean-DUT regression results), the B-H baseline (DEC-016) | Blue |
 
 **Auditor sign-off:** the advisor signs the G0 record.
 
@@ -118,9 +120,9 @@ If a host is repaired, apply the same patch to clean and Trojan versions. Store 
 
 ---
 
-### 7.1 Budget for the handwritten suite (B-H, proposed)
+### 7.1 Budget for the handwritten suite (B-H; DEC-015, DEC-016)
 
-The handwritten suite is a finite list of tests. Its directed part is deterministic: running it again gives the same stimulus. Two budgets are therefore reported:
+Each DUT has its own handwritten suite, written by Blue from the spec and frozen at that DUT's G0 (DEC-016). The suite is a finite list of tests. Its directed part is deterministic: running it again gives the same stimulus. Two budgets are therefore reported:
 
 - **B-H(native):** the suite as an engineer runs it (FIFO: 4 tests × 5 seeds, about 2.1k cycles per seed). This answers "what does normal verification practice achieve".
 - **B-H(matched):** the directed tests once, then the suite's constrained-random test with new seeds until the common cycle budget is used. Its random part is π₀, so at matched budget B-H differs from B0 only by the directed tests. This answers "does expert-written stimulus add anything at equal cost".
@@ -131,7 +133,7 @@ B-H is valid only with the same frozen checker set as every other method (scope 
 
 | ID | Method | Action space | Setting |
 |---|---|---|---|
-| B-H | *(Proposed)* Handwritten verification suite (directed + constrained-random), frozen before any Trojan exists | Fixed tests | BB |
+| B-H | Handwritten verification suite (directed + constrained-random), one per DUT, frozen before any Trojan for that DUT exists (DEC-015, DEC-016) | Fixed tests | BB |
 | B0 | Constrained-random, frozen π₀ | Fixed knobs | BB |
 | B1 | Uniform random knob selection per test | Knobs | BB |
 | B2 | Knob-space black-box optimizer on coverage | Knobs | BB |
@@ -412,7 +414,7 @@ The paper must establish the claims below in this order. Each row says which exp
 
 | Claim | Question | Experiment | Metric | Good result | Weak or meaningless result |
 |---|---|---|---|---|---|
-| **N. Necessity** | Does normal verification practice miss rare-trigger Trojans? | B-H(native) *(proposed)* and B0 on the clean coverage model and on the Trojan set; cost of brute force (§12.1) | Functional/code coverage of B-H; activation per level; B95 in CPU-hours | B-H reaches coverage closure yet activates ≈ 0 % at p ≤ 10⁻⁴; B95 at the hardest levels exceeds a realistic budget | B-H coverage not closed ("they just tested too little"); only easy Trojans; necessity argued from B0 alone (rarity is defined under π₀, so B0 failing at low p is true by construction) |
+| **N. Necessity** | Does normal verification practice miss rare-trigger Trojans? | B-H(native) on every DUT and B0 on the clean coverage model and on the Trojan set; cost of brute force (§12.1) | Functional/code coverage of B-H; activation per level; B95 in CPU-hours | B-H reaches coverage closure yet activates ≈ 0 % at p ≤ 10⁻⁴; B95 at the hardest levels exceeds a realistic budget | B-H coverage not closed ("they just tested too little"); only easy Trojans; necessity argued from B0 alone (rarity is defined under π₀, so B0 failing at low p is true by construction) |
 | **S1. Learning helps** | Is the gain due to learning, not to stimulus diversity? | RL vs B1 (same knobs, no learning) | Δfrontier, RMST ratio, k | Robust or supported superiority (§13.3) | Beats B0 only |
 | **S2. RL is the right tool** | Does RL beat competent non-RL adaptive search? | RL vs B2, B3 (Q1: B4, B5) with equal tuning budget | Same | Superiority vs the strongest of them | Baselines not tuned with the same budget (straw man) |
 | **M. Mechanism** | Which signal causes the gain? | Ablations §14; reward–activation correlation (dev) | Change of Δ when a term is removed | Removing the key term removes most of the gain; A-noR shows the gain is not from rare-bins alone | Gain unchanged by every ablation (signal not understood) |
