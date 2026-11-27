@@ -1,0 +1,6 @@
+# Code owners: changes to these paths need approval from the repository admin.
+# docs/ holds the study documents (scope, literature review, protocol, lab notebook).
+/docs/ @KuanVM
+
+# This file itself, so that ownership cannot be changed without the admin.
+/.github/CODEOWNERS @KuanVM
